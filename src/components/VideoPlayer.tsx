@@ -115,7 +115,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     onSelectText(textId);
   };
 
-  const handleDoubleClick = (e: React.MouseEvent, textId: string, currentText: string) => {
+  const handleDoubleClick = (e: React.MouseEvent, textId: string) => {
     e.stopPropagation();
     setEditingId(textId);
     onSelectText(textId);
@@ -280,7 +280,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 selectedTextId === text.id ? 'ring-2 ring-pink-500 ring-offset-2 ring-offset-transparent shadow-lg' : ''
               }`}
               onMouseDown={(e) => !editingId && handleMouseDown(e, text.id, text.position)}
-              onDoubleClick={(e) => handleDoubleClick(e, text.id, text.text)}
+              onDoubleClick={(e) => handleDoubleClick(e, text.id)}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!editingId) onSelectText(text.id);

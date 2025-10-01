@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { VideoPlayer } from './components/VideoPlayer';
 import { TextEditor } from './components/TextEditor';
 import { VideoPicker } from './components/VideoPicker';
@@ -241,14 +241,6 @@ function App() {
       videoRef.currentTime = 0;
       videoRef.play();
     }
-    
-    // Only update keys for non-marquee text elements to replay their animations
-    setTextElements(prev => prev.map(text => {
-      const isMarquee = text.animation === 'marqueeLeft' || text.animation === 'marqueeRight';
-      // For non-marquee animations, we could add a timestamp to force replay
-      // But since we're using stable keys for marquees, we need a different approach
-      return text;
-    }));
     
     // Increment refresh key to force remount (this will now only affect non-marquee elements)
     setRefreshKey(prev => prev + 1);
