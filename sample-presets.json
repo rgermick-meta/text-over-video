@@ -1,0 +1,240 @@
+[
+  {
+    "name": "Neon Cyberpunk",
+    "category": "Special Effects",
+    "settings": {
+      "fontFamily": "Bungee",
+      "fontSize": 64,
+      "bold": false,
+      "color": "#00FFFF",
+      "letterSpacing": 3,
+      "shadow": {
+        "enabled": true,
+        "color": "#00FFFF",
+        "blur": 30,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "stroke": {
+        "enabled": true,
+        "color": "#FF00FF",
+        "width": 2
+      },
+      "animation": "pulse",
+      "animationDuration": 2
+    }
+  },
+  {
+    "name": "Luxury Gold",
+    "category": "Elegant",
+    "settings": {
+      "fontFamily": "Cinzel",
+      "fontSize": 52,
+      "bold": true,
+      "color": "#FFD700",
+      "letterSpacing": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "rgba(0,0,0,0.8)",
+        "blur": 12,
+        "offsetX": 3,
+        "offsetY": 3
+      },
+      "stroke": {
+        "enabled": true,
+        "color": "#8B6914",
+        "width": 1
+      }
+    }
+  },
+  {
+    "name": "Comic Book",
+    "category": "Fun",
+    "settings": {
+      "fontFamily": "Bangers",
+      "fontSize": 68,
+      "bold": false,
+      "color": "#FFFF00",
+      "letterSpacing": 2,
+      "stroke": {
+        "enabled": true,
+        "color": "#000000",
+        "width": 4
+      },
+      "shadow": {
+        "enabled": true,
+        "color": "#FF0000",
+        "blur": 0,
+        "offsetX": 5,
+        "offsetY": 5
+      },
+      "animation": "bounce",
+      "animationDuration": 1
+    }
+  },
+  {
+    "name": "Minimal Modern",
+    "category": "Clean",
+    "settings": {
+      "fontFamily": "Inter",
+      "fontSize": 42,
+      "bold": false,
+      "color": "#1E1E1E",
+      "letterSpacing": 0,
+      "background": {
+        "enabled": true,
+        "color": "#FFFFFF",
+        "padding": 20,
+        "borderRadius": 8
+      }
+    }
+  },
+  {
+    "name": "Retro Wave",
+    "category": "Special Effects",
+    "settings": {
+      "fontFamily": "Righteous",
+      "fontSize": 58,
+      "bold": false,
+      "color": "#FF6B9D",
+      "letterSpacing": 2,
+      "gradient": {
+        "enabled": true,
+        "colors": ["#FF6B9D", "#C6426E"],
+        "angle": 180
+      },
+      "shadow": {
+        "enabled": true,
+        "color": "#00FFF0",
+        "blur": 15,
+        "offsetX": 0,
+        "offsetY": 8
+      },
+      "stroke": {
+        "enabled": true,
+        "color": "#00FFF0",
+        "width": 1
+      },
+      "animation": "slideUp",
+      "animationDuration": 1.2,
+      "animationDistance": 150
+    }
+  },
+  {
+    "name": "Elegant Script",
+    "category": "Wedding",
+    "settings": {
+      "fontFamily": "Great Vibes",
+      "fontSize": 64,
+      "bold": false,
+      "color": "#8B4789",
+      "letterSpacing": 0,
+      "shadow": {
+        "enabled": true,
+        "color": "rgba(139,71,137,0.3)",
+        "blur": 8,
+        "offsetX": 2,
+        "offsetY": 2
+      }
+    }
+  },
+  {
+    "name": "Tech Terminal",
+    "category": "Tech",
+    "settings": {
+      "fontFamily": "Roboto Mono",
+      "fontSize": 38,
+      "bold": false,
+      "color": "#00FF00",
+      "letterSpacing": 1,
+      "background": {
+        "enabled": true,
+        "color": "rgba(0,0,0,0.9)",
+        "padding": 15,
+        "borderRadius": 4
+      },
+      "shadow": {
+        "enabled": true,
+        "color": "#00FF00",
+        "blur": 10,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    }
+  },
+  {
+    "name": "Pastel Dream",
+    "category": "Soft",
+    "settings": {
+      "fontFamily": "Poppins",
+      "fontSize": 46,
+      "bold": true,
+      "color": "#FFB5E8",
+      "letterSpacing": 1,
+      "gradient": {
+        "enabled": true,
+        "colors": ["#FFB5E8", "#B4E4FF"],
+        "angle": 90
+      },
+      "shadow": {
+        "enabled": true,
+        "color": "rgba(180,228,255,0.5)",
+        "blur": 20,
+        "offsetX": 0,
+        "offsetY": 4
+      }
+    }
+  },
+  {
+    "name": "Fire Text",
+    "category": "Special Effects",
+    "settings": {
+      "fontFamily": "Anton",
+      "fontSize": 70,
+      "bold": true,
+      "color": "#FF4500",
+      "letterSpacing": 3,
+      "gradient": {
+        "enabled": true,
+        "colors": ["#FFFF00", "#FF4500"],
+        "angle": 45
+      },
+      "stroke": {
+        "enabled": true,
+        "color": "#8B0000",
+        "width": 2
+      },
+      "shadow": {
+        "enabled": true,
+        "color": "#FF8C00",
+        "blur": 25,
+        "offsetX": 0,
+        "offsetY": 0
+      }
+    }
+  },
+  {
+    "name": "Ocean Breeze",
+    "category": "Nature",
+    "settings": {
+      "fontFamily": "Montserrat",
+      "fontSize": 50,
+      "bold": true,
+      "color": "#006994",
+      "letterSpacing": 1,
+      "gradient": {
+        "enabled": true,
+        "colors": ["#006994", "#90DDF0"],
+        "angle": 135
+      },
+      "shadow": {
+        "enabled": true,
+        "color": "rgba(0,105,148,0.6)",
+        "blur": 15,
+        "offsetX": 2,
+        "offsetY": 4
+      }
+    }
+  }
+]
+

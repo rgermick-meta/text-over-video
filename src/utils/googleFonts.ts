@@ -36,6 +36,9 @@ export interface TextStylePreset {
     stroke?: { enabled: boolean; color: string; width: number };
     background?: { enabled: boolean; color: string; padding: number; borderRadius: number };
     gradient?: { enabled: boolean; colors: [string, string]; angle: number };
+    animation?: string;
+    animationDuration?: number;
+    animationDistance?: number;
   };
 }
 

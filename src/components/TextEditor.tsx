@@ -1,22 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TextElement, TextAnimation } from '../types';
-import { FONT_CATEGORIES, COLOR_PALETTES, TEXT_STYLE_PRESETS, loadGoogleFont } from '../utils/googleFonts';
+import { FONT_CATEGORIES, COLOR_PALETTES, TEXT_STYLE_PRESETS, loadGoogleFont, TextStylePreset } from '../utils/googleFonts';
+import { 
+  loadCustomPresets, 
+  addCustomPreset, 
+  deleteCustomPreset, 
+  exportPresets, 
+  importPresets, 
+  mergeImportedPresets, 
+  createPresetFromSettings 
+} from '../utils/presetManager';
 
 interface TextEditorProps {
   textElements: TextElement[];
-  selectedTextId: string | null;
+  selectedTextIds: string[];
   onAddText: () => void;
   onUpdateText: (id: string, updates: Partial<TextElement>) => void;
   onDeleteText: (id: string) => void;
   onDuplicateText: (text: TextElement) => void;
-  onSelectText: (id: string | null) => void;
+  onSelectText: (id: string | null, multiSelect?: boolean, rangeSelect?: boolean) => void;
   onToggleVisibility: (id: string) => void;
   onApplyPreset: (presetName: string) => void;
 }
 
 export const TextEditor: React.FC<TextEditorProps> = ({
   textElements,
-  selectedTextId,
+  selectedTextIds,
   onAddText,
   onUpdateText,
   onDeleteText,
@@ -25,7 +34,11 @@ export const TextEditor: React.FC<TextEditorProps> = ({
   onToggleVisibility,
   onApplyPreset,
 }) => {
-  const selectedText = textElements.find(t => t.id === selectedTextId);
+  // Get first selected text for editing (when single selection), or null for multi-selection
+  const selectedText = selectedTextIds.length === 1 
+    ? textElements.find(t => t.id === selectedTextIds[0]) 
+    : null;
+  const isMultiSelect = selectedTextIds.length > 1;
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [activeFontCategory, setActiveFontCategory] = useState<keyof typeof FONT_CATEGORIES>('modern');
   const [showColorPalette, setShowColorPalette] = useState(false);
@@ -33,8 +46,19 @@ export const TextEditor: React.FC<TextEditorProps> = ({
   const [showPresets, setShowPresets] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activeEmojiCategory, setActiveEmojiCategory] = useState<string>('smileys');
+  const [customPresets, setCustomPresets] = useState<TextStylePreset[]>([]);
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [newPresetCategory, setNewPresetCategory] = useState('Custom');
+  const [showImportExport, setShowImportExport] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load custom presets on mount
+  useEffect(() => {
+    setCustomPresets(loadCustomPresets());
+  }, []);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -144,6 +168,107 @@ export const TextEditor: React.FC<TextEditorProps> = ({
     }
   };
 
+  const handleSavePreset = () => {
+    if (!selectedText || !newPresetName.trim()) {
+      alert('Please enter a preset name');
+      return;
+    }
+
+    try {
+      const preset = createPresetFromSettings(
+        newPresetName.trim(),
+        newPresetCategory,
+        {
+          fontFamily: selectedText.fontFamily,
+          fontSize: selectedText.fontSize,
+          bold: selectedText.bold,
+          color: selectedText.color,
+          letterSpacing: selectedText.letterSpacing,
+          shadow: selectedText.shadow.enabled ? selectedText.shadow : undefined,
+          stroke: selectedText.stroke.enabled ? selectedText.stroke : undefined,
+          background: selectedText.background.enabled ? {
+            enabled: selectedText.background.enabled,
+            color: selectedText.background.color,
+            padding: selectedText.background.padding,
+            borderRadius: selectedText.background.borderRadius,
+          } : undefined,
+          gradient: selectedText.gradient.enabled ? selectedText.gradient : undefined,
+          animation: selectedText.animation !== 'none' ? selectedText.animation : undefined,
+          animationDuration: selectedText.animation !== 'none' ? selectedText.animationDuration : undefined,
+          animationDistance: selectedText.animationDistance,
+        }
+      );
+
+      addCustomPreset(preset);
+      setCustomPresets(loadCustomPresets());
+      setNewPresetName('');
+      setNewPresetCategory('Custom');
+      setShowSavePreset(false);
+      alert(`Preset "${preset.name}" saved successfully!`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to save preset');
+    }
+  };
+
+  const handleDeletePreset = (presetName: string) => {
+    if (!confirm(`Delete preset "${presetName}"?`)) return;
+    
+    try {
+      deleteCustomPreset(presetName);
+      setCustomPresets(loadCustomPresets());
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to delete preset');
+    }
+  };
+
+  const handleExportPresets = () => {
+    const allCustomPresets = loadCustomPresets();
+    if (allCustomPresets.length === 0) {
+      alert('No custom presets to export');
+      return;
+    }
+
+    const jsonString = exportPresets(allCustomPresets);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `text-presets-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportPresets = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const jsonString = e.target?.result as string;
+        const importedPresets = importPresets(jsonString);
+        const addedCount = mergeImportedPresets(importedPresets);
+        
+        setCustomPresets(loadCustomPresets());
+        alert(`Successfully imported ${addedCount} new preset(s). ${importedPresets.length - addedCount} duplicate(s) were skipped.`);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Failed to import presets');
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Combine built-in and custom presets
+  const allPresets = [...TEXT_STYLE_PRESETS, ...customPresets];
+  const allCategories = ['Headers', 'Special', 'Body', 'Fun', 'Elegant', 'Custom', ...Array.from(new Set(customPresets.map(p => p.category).filter(c => c !== 'Custom')))];
+
   return (
     <div className="bg-gray-800 rounded-xl p-6 flex flex-col h-full">
       {/* Header */}
@@ -177,7 +302,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({
               <div
                 key={text.id}
                 className={`p-3 rounded-lg transition-all ${
-                  selectedTextId === text.id
+                  selectedTextIds.includes(text.id)
                     ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg'
                     : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
                 }`}
@@ -185,7 +310,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                 <div className="flex items-center justify-between">
                   <div 
                     className="flex-1 truncate cursor-pointer" 
-                    onClick={() => onSelectText(text.id)}
+                    onClick={(e) => onSelectText(text.id, e.metaKey || e.ctrlKey, e.shiftKey)}
                   >
                     <p className="text-sm font-medium truncate">{text.text || 'Empty text'}</p>
                     <p className="text-xs opacity-75">{text.fontFamily} • {text.fontSize}px</p>
@@ -245,34 +370,159 @@ export const TextEditor: React.FC<TextEditorProps> = ({
         </div>
 
         {/* Style Presets */}
-        {selectedText && (
-          <div className="border-t border-gray-700 pt-4">
+        {selectedTextIds.length > 0 && (
+          <div className="border-t border-gray-700 pt-4 pb-4 border-b">
+            {isMultiSelect && (
+              <div className="mb-3 bg-purple-600/20 border border-purple-500/50 rounded-lg p-3">
+                <p className="text-purple-200 text-sm font-medium">
+                  🎨 {selectedTextIds.length} items selected
+                </p>
+                <p className="text-purple-300 text-xs mt-1">
+                  Presets and styles will apply to all selected items
+                </p>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-3">
-              <h5 className="text-gray-300 text-sm font-medium">Style Presets</h5>
               <button
                 onClick={() => setShowPresets(!showPresets)}
-                className="text-xs text-pink-400 hover:text-pink-300"
+                className="flex items-center gap-2 text-gray-300 hover:text-pink-400 transition-colors cursor-pointer"
+                title={showPresets ? 'Collapse presets' : 'Expand presets'}
               >
-                {showPresets ? 'Hide' : 'Show All'}
+                <h5 className="text-sm font-medium">Style Presets</h5>
+                <svg 
+                  className={`w-4 h-4 transition-transform ${showPresets ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setShowImportExport(!showImportExport)}
+                className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded transition-colors"
+                title="Import/Export presets"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
               </button>
             </div>
+
+            {/* Import/Export Section */}
+            {showImportExport && (
+              <div className="mb-3 bg-gray-700/50 rounded-lg p-3 space-y-2">
+                <p className="text-xs text-gray-400 mb-2">Manage Presets</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExportPresets}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-2 rounded-lg transition-colors"
+                  >
+                    Export All
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-2 rounded-lg transition-colors"
+                  >
+                    Import
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportPresets}
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 italic">
+                  {customPresets.length} custom preset(s) saved
+                </p>
+              </div>
+            )}
+
+            {/* Save Current Style Button */}
+            <button
+              onClick={() => setShowSavePreset(!showSavePreset)}
+              className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white text-xs px-3 py-2 rounded-lg transition-all mb-3 flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              Save Current Style as Preset
+            </button>
+
+            {/* Save Preset Form */}
+            {showSavePreset && (
+              <div className="mb-3 bg-gray-700/50 rounded-lg p-3 space-y-2">
+                <input
+                  type="text"
+                  value={newPresetName}
+                  onChange={(e) => setNewPresetName(e.target.value)}
+                  placeholder="Preset name"
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-pink-500 focus:outline-none text-sm"
+                />
+                <input
+                  type="text"
+                  value={newPresetCategory}
+                  onChange={(e) => setNewPresetCategory(e.target.value)}
+                  placeholder="Category (e.g., Custom)"
+                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-pink-500 focus:outline-none text-sm"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSavePreset}
+                    className="flex-1 bg-pink-500 hover:bg-pink-600 text-white text-xs px-3 py-2 rounded-lg transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSavePreset(false);
+                      setNewPresetName('');
+                      setNewPresetCategory('Custom');
+                    }}
+                    className="flex-1 bg-gray-600 hover:bg-gray-500 text-white text-xs px-3 py-2 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
             
             {showPresets && (
               <div className="space-y-3 mb-4">
-                {presetCategories.map(category => (
+                {allCategories.filter(category => allPresets.some(p => p.category === category)).map(category => (
                   <div key={category}>
                     <p className="text-xs text-gray-500 mb-2">{category}</p>
                     <div className="grid grid-cols-2 gap-2">
-                      {TEXT_STYLE_PRESETS.filter(p => p.category === category).map(preset => (
-                        <button
-                          key={preset.name}
-                          onClick={() => onApplyPreset(preset.name)}
-                          className="bg-gray-700 hover:bg-gray-600 text-white text-xs px-3 py-2 rounded-lg transition-colors text-left"
-                          style={{ fontFamily: preset.settings.fontFamily }}
-                        >
-                          {preset.name}
-                        </button>
-                      ))}
+                      {allPresets.filter(p => p.category === category).map(preset => {
+                        const isCustom = customPresets.some(cp => cp.name === preset.name);
+                        return (
+                          <div key={preset.name} className="relative group">
+                            <button
+                              onClick={() => onApplyPreset(preset.name)}
+                              className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs px-3 py-2 rounded-lg transition-colors text-left"
+                              style={{ fontFamily: preset.settings.fontFamily }}
+                            >
+                              {preset.name}
+                            </button>
+                            {isCustom && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePreset(preset.name);
+                                }}
+                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-red-500 hover:bg-red-600 text-white rounded p-1 transition-all"
+                                title="Delete custom preset"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -281,6 +531,18 @@ export const TextEditor: React.FC<TextEditorProps> = ({
 
             {/* Edit Selected Text */}
             <div className="space-y-4">
+              {isMultiSelect ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-400 text-sm mb-2">
+                    📝 Multi-selection editing
+                  </p>
+                  <p className="text-gray-500 text-xs">
+                    Apply presets or use keyboard shortcuts to manipulate all selected items.
+                    Select a single item to edit individual properties.
+                  </p>
+                </div>
+              ) : selectedText ? (
+                <>
               {/* Text Input */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1210,6 +1472,8 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                   </>
                 )}
               </div>
+                </>
+              ) : null}
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
-# TikTok-Style Video Player with Rive Animations 🎬✨
+# Video+Text: TikTok-Style Video Editor 🎬✨
 
-A mobile-first video player prototype that demonstrates layering interactive Rive animations on top of video content with a swipeable style picker. Built with React, TypeScript, and Rive.
+A mobile-first video editor that allows you to add and style text overlays on videos with custom presets. Built with React, TypeScript, and Tailwind CSS.
 
 ![Project Preview](https://img.shields.io/badge/React-18.3.1-61DAFB?style=flat&logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.5.3-3178C6?style=flat&logo=typescript&logoColor=white)
@@ -9,11 +9,13 @@ A mobile-first video player prototype that demonstrates layering interactive Riv
 ## Features
 
 - 🎥 **Video Player**: Looping MP4 video player with mobile-optimized 9:16 aspect ratio
-- ✨ **Rive Overlay**: Transparent Rive animation canvas layered on top of video
-- 🎨 **Style Picker**: Horizontal scrollable gallery with thumbnail previews
-- 🔄 **Live Switching**: Seamlessly swap between different Rive animations
+- ✨ **Text Overlays**: Add and customize text with advanced styling options
+- 🎨 **Style Presets**: Built-in and custom text style presets with save/import/export
+- 🔤 **Rich Text Editing**: Font families, sizes, colors, gradients, shadows, strokes
+- 📋 **Preset Management**: Save your favorite text styles and share them as JSON
+- 🔄 **Live Preview**: See changes in real-time as you edit
 - 📱 **Mobile-First**: Responsive design optimized for mobile viewing
-- 🎭 **Simultaneous Playback**: Video and Rive animations play together in sync
+- 💾 **Local Storage**: Custom presets saved automatically in browser
 
 ## Tech Stack
 
@@ -29,14 +31,23 @@ A mobile-first video player prototype that demonstrates layering interactive Riv
 Video+Text/
 ├── src/
 │   ├── components/
-│   │   ├── VideoPlayer.tsx    # Main player with video + Rive overlay
-│   │   └── StylePicker.tsx    # Horizontal scrollable animation selector
+│   │   ├── VideoPlayer.tsx    # Video player with text overlays
+│   │   ├── TextEditor.tsx     # Text editing and styling controls
+│   │   ├── StylePicker.tsx    # Animation style selector
+│   │   └── VideoPicker.tsx    # Video selection interface
 │   ├── data/
-│   │   └── animations.ts      # Sample Rive animations data
+│   │   └── animations.ts      # Sample videos data
+│   ├── utils/
+│   │   ├── googleFonts.ts     # Font and preset definitions
+│   │   └── presetManager.ts   # LocalStorage preset management
 │   ├── types.ts               # TypeScript interfaces
 │   ├── App.tsx                # Root component
 │   ├── main.tsx               # Entry point
 │   └── index.css              # Global styles with Tailwind
+├── public/
+│   └── videos/                # Video files and thumbnails
+├── PRESET_SCHEMA.md           # Preset JSON schema documentation
+├── sample-presets.json        # Example preset collection
 ├── index.html
 ├── package.json
 ├── tsconfig.json
@@ -96,29 +107,42 @@ The built files will be in the `dist/` directory.
 
 ## Customization
 
-### Adding Your Own Rive Animations
+### Working with Text Style Presets
 
-Edit `src/data/animations.ts`:
+#### Save Custom Presets
+1. Style your text with the desired settings
+2. Click "Save Current Style as Preset"
+3. Enter a name and category for your preset
+4. Click "Save" - your preset is now available in the presets list
+
+#### Export Presets
+1. Click the Import/Export button (download icon)
+2. Click "Export All" to download your custom presets as JSON
+3. The file will be saved as `text-presets-[timestamp].json`
+4. Share this file with others or keep as backup
+
+#### Import Presets
+1. Click the Import/Export button
+2. Click "Import" and select a JSON file
+3. New presets will be added; duplicates are skipped
+4. See `sample-presets.json` for example preset collections
+
+For detailed information about the preset JSON schema, see [PRESET_SCHEMA.md](PRESET_SCHEMA.md).
+
+### Adding Videos
+
+Place video files in the `public/videos/` directory and update `src/data/animations.ts`:
 
 ```typescript
-export const SAMPLE_ANIMATIONS: RiveAnimation[] = [
+export const SAMPLE_VIDEOS: VideoClip[] = [
   {
-    id: 'my-animation',
-    name: 'My Animation',
-    src: 'https://your-rive-url.riv',
-    thumbnail: 'https://your-thumbnail.png',
-    stateMachine: 'State Machine 1', // Optional
+    id: 'my-video',
+    name: 'My Video',
+    src: '/videos/my-video.mp4',
+    thumbnail: '/videos/thumbnails/my-video.jpg',
   },
-  // Add more animations...
+  // Add more videos...
 ];
-```
-
-### Changing the Video
-
-Update the video URL in `src/data/animations.ts`:
-
-```typescript
-export const SAMPLE_VIDEO_URL = 'https://your-video-url.mp4';
 ```
 
 ### Styling
@@ -168,13 +192,14 @@ The project uses Tailwind CSS for styling. Modify:
 
 ## Future Enhancements
 
-- [ ] Add play/pause controls
-- [ ] Implement video scrubbing
-- [ ] Support for local file uploads
-- [ ] Animation synchronization controls
-- [ ] Save/export composed videos
-- [ ] Multiple animation layers
-- [ ] Custom animation timing controls
+- [x] Text style presets with save/import/export
+- [x] LocalStorage persistence for custom presets
+- [ ] Cloud storage for presets and projects
+- [ ] Export composed videos with text overlays
+- [ ] Preset sharing marketplace
+- [ ] Animation timing controls for text
+- [ ] Multiple text layers with z-index control
+- [ ] Video trimming and editing
 
 ## Resources
 

@@ -4,10 +4,11 @@ import { TextElement } from '../types';
 interface VideoPlayerProps {
   videoUrl: string;
   textElements: TextElement[];
-  selectedTextId: string | null;
+  selectedTextIds: string[];
   onTextPositionChange: (id: string, position: { x: number; y: number }) => void;
-  onSelectText: (id: string | null) => void;
+  onSelectText: (id: string | null, multiSelect?: boolean, rangeSelect?: boolean) => void;
   onUpdateText: (id: string, updates: Partial<TextElement>) => void;
+  onBatchUpdateText: (updates: Record<string, Partial<TextElement>>) => void;
   onVideoReady?: (video: HTMLVideoElement) => void;
   refreshTrigger?: number;
 }
@@ -15,10 +16,11 @@ interface VideoPlayerProps {
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   videoUrl,
   textElements,
-  selectedTextId,
+  selectedTextIds,
   onTextPositionChange,
   onSelectText,
   onUpdateText,
+  onBatchUpdateText,
   onVideoReady,
   refreshTrigger = 0,
 }) => {
@@ -26,6 +28,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dragStartPositions, setDragStartPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [resizingId, setResizingId] = useState<string | null>(null);
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
   const [resizeStartX, setResizeStartX] = useState(0);
@@ -64,7 +67,32 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       x: clickX - textPosition.x,
       y: clickY - textPosition.y,
     });
-    onSelectText(textId);
+    
+    // Store initial positions of all selected items (or just this item if it will be selected alone)
+    const isModifierPressed = e.metaKey || e.ctrlKey || e.shiftKey;
+    const willBeMultiSelect = selectedTextIds.includes(textId) || isModifierPressed;
+    
+    if (willBeMultiSelect && selectedTextIds.includes(textId)) {
+      // Capture positions of all currently selected items
+      const startPositions: Record<string, { x: number; y: number }> = {};
+      selectedTextIds.forEach(id => {
+        const element = textElements.find(t => t.id === id);
+        if (element) {
+          startPositions[id] = { x: element.position.x, y: element.position.y };
+        }
+      });
+      setDragStartPositions(startPositions);
+    } else {
+      // Single item drag
+      setDragStartPositions({ [textId]: { x: textPosition.x, y: textPosition.y } });
+    }
+    
+    // Only change selection if:
+    // 1. The clicked item is not already selected (to preserve multi-selection)
+    // 2. OR modifier keys are pressed (for multi-select operations)
+    if (!selectedTextIds.includes(textId) || isModifierPressed) {
+      onSelectText(textId, e.metaKey || e.ctrlKey, e.shiftKey);
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -73,10 +101,37 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const x = ((e.clientX - rect.left) / rect.width) * 100 - dragOffset.x;
       const y = ((e.clientY - rect.top) / rect.height) * 100 - dragOffset.y;
 
-      onTextPositionChange(draggingId, {
-        x: Math.max(0, Math.min(100, x)),
-        y: Math.max(0, Math.min(100, y)),
-      });
+      // Check if this is a multi-select drag
+      if (selectedTextIds.includes(draggingId) && selectedTextIds.length > 1 && dragStartPositions[draggingId]) {
+        // Multi-select: move all selected elements together
+        // Calculate delta from the dragged item's initial position to current mouse position
+        const startPos = dragStartPositions[draggingId];
+        const deltaX = x - startPos.x;
+        const deltaY = y - startPos.y;
+        
+        // Build batch update object for all selected items
+        const batchUpdates: Record<string, Partial<TextElement>> = {};
+        selectedTextIds.forEach(id => {
+          const initialPos = dragStartPositions[id];
+          if (initialPos) {
+            batchUpdates[id] = {
+              position: {
+                x: Math.max(0, Math.min(100, initialPos.x + deltaX)),
+                y: Math.max(0, Math.min(100, initialPos.y + deltaY)),
+              }
+            };
+          }
+        });
+        
+        // Apply all updates at once
+        onBatchUpdateText(batchUpdates);
+      } else {
+        // Single selection: move only this element
+        onTextPositionChange(draggingId, {
+          x: Math.max(0, Math.min(100, x)),
+          y: Math.max(0, Math.min(100, y)),
+        });
+      }
     }
 
     if (resizingId && containerRef.current) {
@@ -102,6 +157,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setDraggingId(null);
     setResizingId(null);
     setRotatingId(null);
+    setDragStartPositions({});
   };
 
   const handleResizeStart = (e: React.MouseEvent, textId: string, currentWidth: number, side: 'left' | 'right') => {
@@ -206,6 +262,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       width: isMarquee ? '100%' : `${text.width}px`,
       display: text.visible ? 'block' : 'none',
       overflow: isMarquee ? 'hidden' : 'visible',
+      boxSizing: 'border-box',
     };
 
     // For marquee, apply background to the full-width container
@@ -244,11 +301,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         styles.borderTop = `${text.background.stroke.width}px solid ${text.background.stroke.color}`;
         styles.borderBottom = `${text.background.stroke.width}px solid ${text.background.stroke.color}`;
       }
-      
-      // Background shadow (box-shadow) for marquee
-      if (text.background.shadow?.enabled) {
-        styles.boxShadow = `${text.background.shadow.offsetX}px ${text.background.shadow.offsetY}px ${text.background.shadow.blur}px ${text.background.shadow.color}`;
-      }
     }
 
     return styles;
@@ -264,13 +316,34 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return styles;
   };
 
-  // Get styles for the background wrapper (padding, border, shadow, background color/gradient)
+  // Get styles for the shadow wrapper (only box-shadow)
+  const getShadowWrapperStyles = (text: TextElement): React.CSSProperties => {
+    const isMarquee = text.animation === 'marqueeLeft' || text.animation === 'marqueeRight';
+    const styles: React.CSSProperties = {
+      display: 'block',
+      width: '100%',
+      position: 'relative',
+    };
+    
+    // Background shadow (box-shadow)
+    if (text.background.enabled && text.background.shadow?.enabled) {
+      styles.boxShadow = `${text.background.shadow.offsetX}px ${text.background.shadow.offsetY}px ${text.background.shadow.blur}px ${text.background.shadow.color}`;
+      if (!isMarquee) {
+        styles.borderRadius = `${text.background.borderRadius}px`;
+      }
+    }
+
+    return styles;
+  };
+
+  // Get styles for the background wrapper (padding, border, background color/gradient)
   const getBackgroundWrapperStyles = (text: TextElement): React.CSSProperties => {
     const isMarquee = text.animation === 'marqueeLeft' || text.animation === 'marqueeRight';
     const styles: React.CSSProperties = {
       display: 'block',
       width: '100%',
       position: 'relative',
+      boxSizing: 'border-box',
     };
     
     // Rotation is now handled by the container, not here
@@ -314,11 +387,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // Background stroke (border)
       if (text.background.stroke?.enabled) {
         styles.border = `${text.background.stroke.width}px solid ${text.background.stroke.color}`;
-      }
-      
-      // Background shadow (box-shadow)
-      if (text.background.shadow?.enabled) {
-        styles.boxShadow = `${text.background.shadow.offsetX}px ${text.background.shadow.offsetY}px ${text.background.shadow.blur}px ${text.background.shadow.color}`;
       }
     }
 
@@ -384,10 +452,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     }
 
-    // Text stroke
+    // Text stroke - use multiple text-shadows for rounded appearance
     if (text.stroke.enabled && !text.gradient.enabled) {
-      styles.WebkitTextStroke = `${text.stroke.width}px ${text.stroke.color}`;
-      styles.paintOrder = 'stroke fill';
+      // Create a rounded stroke effect using multiple shadows
+      // This eliminates sharp corners better than -webkit-text-stroke
+      const strokeWidth = text.stroke.width;
+      const strokeColor = text.stroke.color;
+      const steps = Math.max(8, Math.round(strokeWidth * 3)); // More steps for smoother strokes
+      
+      const strokeShadows = [];
+      for (let i = 0; i < steps; i++) {
+        const angle = (i * 2 * Math.PI) / steps;
+        const offsetX = Math.cos(angle) * strokeWidth;
+        const offsetY = Math.sin(angle) * strokeWidth;
+        strokeShadows.push(`${offsetX.toFixed(2)}px ${offsetY.toFixed(2)}px 0 ${strokeColor}`);
+      }
+      
+      // Combine stroke shadows with existing text shadow if present
+      if (text.shadow.enabled) {
+        const textShadow = `${text.shadow.offsetX}px ${text.shadow.offsetY}px ${text.shadow.blur}px ${text.shadow.color}`;
+        styles.textShadow = [textShadow, ...strokeShadows].join(', ');
+      } else {
+        styles.textShadow = strokeShadows.join(', ');
+      }
     }
 
     return styles;
@@ -429,38 +516,47 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           >
             <div
               className={`relative transition-shadow ${
-                selectedTextId === text.id ? 'ring-2 ring-pink-500 ring-offset-2 ring-offset-transparent shadow-lg' : ''
+                selectedTextIds.includes(text.id) ? 'ring-2 ring-pink-500 ring-offset-2 ring-offset-transparent shadow-lg' : ''
               }`}
               onMouseDown={(e) => !editingId && handleMouseDown(e, text.id, text.position)}
               onDoubleClick={(e) => handleDoubleClick(e, text.id)}
               onClick={(e) => {
                 e.stopPropagation();
-                if (!editingId) onSelectText(text.id);
+                // Only change selection on click if item is not already selected or modifiers pressed
+                if (!editingId) {
+                  const isModifierPressed = e.metaKey || e.ctrlKey || e.shiftKey;
+                  if (!selectedTextIds.includes(text.id) || isModifierPressed) {
+                    onSelectText(text.id, e.metaKey || e.ctrlKey, e.shiftKey);
+                  }
+                }
               }}
               onMouseEnter={() => setHoveredId(text.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
               {isMarquee && editingId !== text.id ? (
                 // For marquee, render multiple copies for seamless looping
-                <div style={getMarqueeWrapperStyles(text)}>
-                  <div style={getTextContentStyles(text)}>
-                    {text.text}
-                  </div>
-                  <div style={getTextContentStyles(text)}>
-                    {text.text}
-                  </div>
-                  <div style={getTextContentStyles(text)}>
-                    {text.text}
-                  </div>
-                  <div style={getTextContentStyles(text)}>
-                    {text.text}
+                <div style={getShadowWrapperStyles(text)}>
+                  <div style={getMarqueeWrapperStyles(text)}>
+                    <div style={getTextContentStyles(text)}>
+                      {text.text}
+                    </div>
+                    <div style={getTextContentStyles(text)}>
+                      {text.text}
+                    </div>
+                    <div style={getTextContentStyles(text)}>
+                      {text.text}
+                    </div>
+                    <div style={getTextContentStyles(text)}>
+                      {text.text}
+                    </div>
                   </div>
                 </div>
               ) : (
                 // For non-marquee or when editing
                 // Only use wrapper when background is enabled to avoid gradient text issues
                 text.background.enabled ? (
-                  <div style={getBackgroundWrapperStyles(text)}>
+                  <div style={getShadowWrapperStyles(text)}>
+                    <div style={getBackgroundWrapperStyles(text)}>
                     {/* When both text and background gradients are enabled, add background layer */}
                     {text.gradient.enabled && text.background.gradient?.enabled && (() => {
                       const opacity = text.background.opacity ?? 0.5;
@@ -473,12 +569,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       const r2 = parseInt(color2.slice(1, 3), 16);
                       const g2 = parseInt(color2.slice(3, 5), 16);
                       const b2 = parseInt(color2.slice(5, 7), 16);
+                      // Calculate inner border radius (outer radius - border width)
+                      const borderWidth = text.background.stroke?.enabled ? text.background.stroke.width : 0;
+                      const innerRadius = Math.max(0, text.background.borderRadius - borderWidth);
                       return (
                         <div style={{
                           position: 'absolute',
                           inset: 0,
                           background: `linear-gradient(${angle}deg, rgba(${r1}, ${g1}, ${b1}, ${opacity}), rgba(${r2}, ${g2}, ${b2}, ${opacity}))`,
-                          borderRadius: `${text.background.borderRadius}px`,
+                          borderRadius: `${innerRadius}px`,
                           zIndex: -1,
                         }} />
                       );
@@ -489,12 +588,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       const r = parseInt(hexColor.slice(1, 3), 16);
                       const g = parseInt(hexColor.slice(3, 5), 16);
                       const b = parseInt(hexColor.slice(5, 7), 16);
+                      // Calculate inner border radius (outer radius - border width)
+                      const borderWidth = text.background.stroke?.enabled ? text.background.stroke.width : 0;
+                      const innerRadius = Math.max(0, text.background.borderRadius - borderWidth);
                       return (
                         <div style={{
                           position: 'absolute',
                           inset: 0,
                           backgroundColor: `rgba(${r}, ${g}, ${b}, ${opacity})`,
-                          borderRadius: `${text.background.borderRadius}px`,
+                          borderRadius: `${innerRadius}px`,
                           zIndex: -1,
                         }} />
                       );
@@ -536,6 +638,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                         {text.text}
                       </div>
                     )}
+                    </div>
                   </div>
                 ) : editingId === text.id ? (
                   <div
@@ -573,7 +676,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               )}
               
               {/* Resize handles */}
-              {selectedTextId === text.id && !editingId && (
+              {selectedTextIds.includes(text.id) && !editingId && (
                 <>
                   <div
                     onMouseDown={(e) => handleResizeStart(e, text.id, text.width, 'right')}
@@ -611,7 +714,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               )}
               
               {/* Rotation handle - shows on hover or when rotating */}
-              {(hoveredId === text.id || rotatingId === text.id) && selectedTextId === text.id && !editingId && (
+              {(hoveredId === text.id || rotatingId === text.id) && selectedTextIds.includes(text.id) && selectedTextIds.length === 1 && !editingId && (
                 <>
                   {/* Invisible connector to prevent hover gap */}
                   <div

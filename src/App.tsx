@@ -1,27 +1,112 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { VideoPlayer } from './components/VideoPlayer';
 import { TextEditor } from './components/TextEditor';
 import { VideoPicker } from './components/VideoPicker';
 import { SAMPLE_VIDEOS } from './data/animations';
 import { TextElement, VideoClip } from './types';
 import { loadAllGoogleFonts, TEXT_STYLE_PRESETS } from './utils/googleFonts';
+import { loadCustomPresets } from './utils/presetManager';
+import { processVideoWithText, downloadVideo } from './utils/videoExport';
 
 function App() {
   const [selectedVideo, setSelectedVideo] = useState<VideoClip>(
     SAMPLE_VIDEOS[0]
   );
   const [textElements, setTextElements] = useState<TextElement[]>([]);
-  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [selectedTextIds, setSelectedTextIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'text' | 'video'>('text');
   const [copiedText, setCopiedText] = useState<TextElement | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  
+  // Undo/Redo state
+  const [history, setHistory] = useState<TextElement[][]>([[]]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [isUndoRedoAction, setIsUndoRedoAction] = useState(false);
+  const [pendingHistoryUpdate, setPendingHistoryUpdate] = useState(false);
+  const historyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Load all Google Fonts on mount
     loadAllGoogleFonts();
   }, []);
+
+  // Commit current state to history (called immediately for discrete actions)
+  const commitToHistory = () => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(JSON.parse(JSON.stringify(textElements)));
+    
+    // Limit history to 50 states to prevent memory issues
+    if (newHistory.length > 50) {
+      newHistory.shift();
+    } else {
+      setHistoryIndex(historyIndex + 1);
+    }
+    
+    setHistory(newHistory);
+    setPendingHistoryUpdate(false);
+    
+    // Clear any pending timeout
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current);
+      historyTimeoutRef.current = null;
+    }
+  };
+
+  // Track changes to textElements for undo/redo with debouncing
+  useEffect(() => {
+    if (!isUndoRedoAction && !pendingHistoryUpdate) {
+      // Clear existing timeout
+      if (historyTimeoutRef.current) {
+        clearTimeout(historyTimeoutRef.current);
+      }
+      
+      // Debounce history updates by 500ms for continuous actions like dragging
+      historyTimeoutRef.current = setTimeout(() => {
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push(JSON.parse(JSON.stringify(textElements)));
+        
+        // Limit history to 50 states to prevent memory issues
+        if (newHistory.length > 50) {
+          newHistory.shift();
+        } else {
+          setHistoryIndex(historyIndex + 1);
+        }
+        
+        setHistory(newHistory);
+        historyTimeoutRef.current = null;
+      }, 500);
+    }
+    setIsUndoRedoAction(false);
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (historyTimeoutRef.current) {
+        clearTimeout(historyTimeoutRef.current);
+      }
+    };
+  }, [textElements]);
+
+  // Undo function
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      setIsUndoRedoAction(true);
+      setHistoryIndex(historyIndex - 1);
+      setTextElements(JSON.parse(JSON.stringify(history[historyIndex - 1])));
+    }
+  };
+
+  // Redo function
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      setIsUndoRedoAction(true);
+      setHistoryIndex(historyIndex + 1);
+      setTextElements(JSON.parse(JSON.stringify(history[historyIndex + 1])));
+    }
+  };
 
   useEffect(() => {
     // Handle keyboard shortcuts
@@ -32,11 +117,24 @@ function App() {
         return;
       }
 
-      // Arrow keys to move selected text
-      if (selectedTextId && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      // Undo with Cmd/Ctrl+Z
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
-        const selectedText = textElements.find(t => t.id === selectedTextId);
-        if (!selectedText || !videoRef) return;
+        handleUndo();
+        return;
+      }
+
+      // Redo with Cmd/Ctrl+Shift+Z
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+
+      // Arrow keys to move selected text(s)
+      if (selectedTextIds.length > 0 && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        if (!videoRef) return;
 
         // Calculate pixel step based on shift key (1px or 10px)
         const pixelStep = e.shiftKey ? 10 : 1;
@@ -49,40 +147,49 @@ function App() {
         const percentX = (pixelStep / containerWidth) * 100;
         const percentY = (pixelStep / containerHeight) * 100;
 
-        let newX = selectedText.position.x;
-        let newY = selectedText.position.y;
+        let deltaX = 0;
+        let deltaY = 0;
 
         switch (e.key) {
           case 'ArrowLeft':
-            newX = Math.max(0, selectedText.position.x - percentX);
+            deltaX = -percentX;
             break;
           case 'ArrowRight':
-            newX = Math.min(100, selectedText.position.x + percentX);
+            deltaX = percentX;
             break;
           case 'ArrowUp':
-            newY = Math.max(0, selectedText.position.y - percentY);
+            deltaY = -percentY;
             break;
           case 'ArrowDown':
-            newY = Math.min(100, selectedText.position.y + percentY);
+            deltaY = percentY;
             break;
         }
 
-        handleUpdateText(selectedTextId, { position: { x: newX, y: newY } });
+        // Move all selected elements using batch update
+        const batchUpdates: Record<string, Partial<TextElement>> = {};
+        selectedTextIds.forEach(id => {
+          const selectedText = textElements.find(t => t.id === id);
+          if (selectedText) {
+            const newX = Math.max(0, Math.min(100, selectedText.position.x + deltaX));
+            const newY = Math.max(0, Math.min(100, selectedText.position.y + deltaY));
+            batchUpdates[id] = { position: { x: newX, y: newY } };
+          }
+        });
+        handleBatchUpdateText(batchUpdates);
       }
 
-      // Delete selected text
+      // Delete selected text(s)
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedTextId) {
+        if (selectedTextIds.length > 0) {
           e.preventDefault();
-          setTextElements(prev => prev.filter(text => text.id !== selectedTextId));
-          setSelectedTextId(null);
+          handleDeleteMultiple(selectedTextIds);
         }
       }
 
-      // Copy selected text
+      // Copy selected text(s)
       if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
-        if (selectedTextId) {
-          const textToCopy = textElements.find(t => t.id === selectedTextId);
+        if (selectedTextIds.length === 1) {
+          const textToCopy = textElements.find(t => t.id === selectedTextIds[0]);
           if (textToCopy) {
             e.preventDefault();
             setCopiedText(textToCopy);
@@ -90,10 +197,23 @@ function App() {
         }
       }
 
+      // Select all text elements
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault();
+        setSelectedTextIds(textElements.map(t => t.id));
+      }
+
       // Paste/duplicate copied text
       if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
         if (copiedText) {
           e.preventDefault();
+          // Commit current state before pasting
+          setPendingHistoryUpdate(true);
+          if (historyTimeoutRef.current) {
+            clearTimeout(historyTimeoutRef.current);
+            historyTimeoutRef.current = null;
+          }
+          
           const newText: TextElement = {
             ...copiedText,
             id: `text-${Date.now()}`,
@@ -108,48 +228,41 @@ function App() {
             },
           };
           setTextElements(prev => [...prev, newText]);
-          setSelectedTextId(newText.id);
+          setSelectedTextIds([newText.id]);
+          
+          // Commit immediately after pasting
+          setTimeout(commitToHistory, 0);
         }
       }
 
       // Duplicate with Cmd/Ctrl+D
       if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
-        if (selectedTextId) {
+        if (selectedTextIds.length > 0) {
           e.preventDefault();
-          const textToDuplicate = textElements.find(t => t.id === selectedTextId);
-          if (textToDuplicate) {
-            const newText: TextElement = {
-              ...textToDuplicate,
-              id: `text-${Date.now()}`,
-              position: {
-                x: textToDuplicate.position.x + 5,
-                y: textToDuplicate.position.y + 5,
-              },
-              animationDistance: textToDuplicate.animationDistance ?? 100,
-              background: {
-                ...textToDuplicate.background,
-                opacity: textToDuplicate.background.opacity ?? 0.5,
-              },
-            };
-            setTextElements(prev => [...prev, newText]);
-            setSelectedTextId(newText.id);
-          }
+          handleDuplicateMultiple(selectedTextIds);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTextId, textElements, copiedText, videoRef]);
+  }, [selectedTextIds, textElements, copiedText, videoRef, historyIndex, history]);
 
   const handleSelectVideo = (video: VideoClip) => {
     setSelectedVideo(video);
   };
 
   const handleAddText = () => {
-    // Use properties from the selected text or most recent text element
-    const templateText = selectedTextId 
-      ? textElements.find(t => t.id === selectedTextId)
+    // Commit current state before adding new text
+    setPendingHistoryUpdate(true);
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current);
+      historyTimeoutRef.current = null;
+    }
+    
+    // Use properties from the first selected text or most recent text element
+    const templateText = selectedTextIds.length > 0
+      ? textElements.find(t => t.id === selectedTextIds[0])
       : textElements[textElements.length - 1];
 
     const defaultTemplate: Omit<TextElement, 'id'> = {
@@ -235,25 +348,66 @@ function App() {
         };
 
     setTextElements([...textElements, newText]);
-    setSelectedTextId(newText.id);
+    setSelectedTextIds([newText.id]);
+    
+    // Commit immediately after adding
+    setTimeout(commitToHistory, 0);
   };
 
   const handleUpdateText = (id: string, updates: Partial<TextElement>) => {
-    setTextElements(
-      textElements.map((text) =>
+    setTextElements(prev =>
+      prev.map((text) =>
         text.id === id ? { ...text, ...updates } : text
       )
     );
   };
 
+  const handleBatchUpdateText = (updates: Record<string, Partial<TextElement>>) => {
+    setTextElements(prev =>
+      prev.map((text) =>
+        updates[text.id] ? { ...text, ...updates[text.id] } : text
+      )
+    );
+  };
+
   const handleDeleteText = (id: string) => {
-    setTextElements(textElements.filter((text) => text.id !== id));
-    if (selectedTextId === id) {
-      setSelectedTextId(null);
+    // Commit current state before deleting
+    setPendingHistoryUpdate(true);
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current);
+      historyTimeoutRef.current = null;
     }
+    
+    setTextElements(textElements.filter((text) => text.id !== id));
+    setSelectedTextIds(prev => prev.filter(selectedId => selectedId !== id));
+    
+    // Commit immediately after deleting
+    setTimeout(commitToHistory, 0);
+  };
+
+  const handleDeleteMultiple = (ids: string[]) => {
+    // Commit current state before deleting
+    setPendingHistoryUpdate(true);
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current);
+      historyTimeoutRef.current = null;
+    }
+    
+    setTextElements(textElements.filter((text) => !ids.includes(text.id)));
+    setSelectedTextIds([]);
+    
+    // Commit immediately after deleting
+    setTimeout(commitToHistory, 0);
   };
 
   const handleDuplicateText = (textToDuplicate: TextElement) => {
+    // Commit current state before duplicating
+    setPendingHistoryUpdate(true);
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current);
+      historyTimeoutRef.current = null;
+    }
+    
     const newText: TextElement = {
       ...textToDuplicate,
       id: `text-${Date.now()}`,
@@ -268,7 +422,44 @@ function App() {
       },
     };
     setTextElements([...textElements, newText]);
-    setSelectedTextId(newText.id);
+    setSelectedTextIds([newText.id]);
+    
+    // Commit immediately after duplicating
+    setTimeout(commitToHistory, 0);
+  };
+
+  const handleDuplicateMultiple = (ids: string[]) => {
+    // Commit current state before duplicating
+    setPendingHistoryUpdate(true);
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current);
+      historyTimeoutRef.current = null;
+    }
+    
+    const newTexts: TextElement[] = ids.map((id, index) => {
+      const textToDuplicate = textElements.find(t => t.id === id);
+      if (!textToDuplicate) return null;
+      
+      return {
+        ...textToDuplicate,
+        id: `text-${Date.now()}-${index}`,
+        position: {
+          x: textToDuplicate.position.x + 5,
+          y: textToDuplicate.position.y + 5,
+        },
+        animationDistance: textToDuplicate.animationDistance ?? 100,
+        background: {
+          ...textToDuplicate.background,
+          opacity: textToDuplicate.background.opacity ?? 0.5,
+        },
+      };
+    }).filter((t): t is TextElement => t !== null);
+    
+    setTextElements([...textElements, ...newTexts]);
+    setSelectedTextIds(newTexts.map(t => t.id));
+    
+    // Commit immediately after duplicating
+    setTimeout(commitToHistory, 0);
   };
 
   const handleTextPositionChange = (id: string, position: { x: number; y: number }) => {
@@ -283,9 +474,20 @@ function App() {
   };
 
   const handleApplyPreset = (presetName: string) => {
-    if (!selectedTextId) return;
+    if (selectedTextIds.length === 0) return;
 
-    const preset = TEXT_STYLE_PRESETS.find(p => p.name === presetName);
+    // Commit current state before applying preset
+    setPendingHistoryUpdate(true);
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current);
+      historyTimeoutRef.current = null;
+    }
+
+    // Search in both built-in and custom presets
+    const customPresets = loadCustomPresets();
+    const allPresets = [...TEXT_STYLE_PRESETS, ...customPresets];
+    const preset = allPresets.find(p => p.name === presetName);
+    
     if (!preset) return;
 
     const updates: Partial<TextElement> = {
@@ -308,8 +510,54 @@ function App() {
     if (preset.settings.gradient) {
       updates.gradient = preset.settings.gradient;
     }
+    if (preset.settings.animation) {
+      updates.animation = preset.settings.animation as TextElement['animation'];
+    }
+    if (preset.settings.animationDuration !== undefined) {
+      updates.animationDuration = preset.settings.animationDuration;
+    }
+    if (preset.settings.animationDistance !== undefined) {
+      updates.animationDistance = preset.settings.animationDistance;
+    }
 
-    handleUpdateText(selectedTextId, updates);
+    // Apply preset to all selected elements
+    selectedTextIds.forEach(id => {
+      handleUpdateText(id, updates);
+    });
+    
+    // Commit immediately after applying preset
+    setTimeout(commitToHistory, 0);
+  };
+
+  const handleSelectText = (id: string | null, multiSelect?: boolean, rangeSelect?: boolean) => {
+    if (id === null) {
+      setSelectedTextIds([]);
+      return;
+    }
+
+    if (rangeSelect && selectedTextIds.length > 0) {
+      // Shift-click: Select range from last selected to clicked item
+      const lastSelectedId = selectedTextIds[selectedTextIds.length - 1];
+      const lastIndex = textElements.findIndex(t => t.id === lastSelectedId);
+      const clickedIndex = textElements.findIndex(t => t.id === id);
+      
+      if (lastIndex !== -1 && clickedIndex !== -1) {
+        const start = Math.min(lastIndex, clickedIndex);
+        const end = Math.max(lastIndex, clickedIndex);
+        const rangeIds = textElements.slice(start, end + 1).map(t => t.id);
+        setSelectedTextIds(rangeIds);
+      }
+    } else if (multiSelect) {
+      // Cmd/Ctrl-click: Toggle selection
+      if (selectedTextIds.includes(id)) {
+        setSelectedTextIds(prev => prev.filter(selectedId => selectedId !== id));
+      } else {
+        setSelectedTextIds(prev => [...prev, id]);
+      }
+    } else {
+      // Normal click: Select only this item
+      setSelectedTextIds([id]);
+    }
   };
 
   const handleRefresh = () => {
@@ -332,6 +580,37 @@ function App() {
         videoRef.play();
       }
       setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleDownloadVideo = async () => {
+    if (isProcessing) return;
+
+    try {
+      setIsProcessing(true);
+      setProcessingProgress(0);
+
+      // Process video with text overlays
+      const videoBlob = await processVideoWithText(
+        selectedVideo.src,
+        textElements,
+        (progress) => setProcessingProgress(progress)
+      );
+
+      // Download the processed video
+      const filename = `${selectedVideo.name.replace(/\.[^/.]+$/, '')}-with-text.mp4`;
+      downloadVideo(videoBlob, filename);
+
+      setProcessingProgress(100);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setProcessingProgress(0);
+      }, 1000);
+    } catch (error) {
+      console.error('Error processing video:', error);
+      alert('Failed to process video. Please try again.');
+      setIsProcessing(false);
+      setProcessingProgress(0);
     }
   };
 
@@ -378,12 +657,12 @@ function App() {
           {activeTab === 'text' ? (
             <TextEditor
               textElements={textElements}
-              selectedTextId={selectedTextId}
+              selectedTextIds={selectedTextIds}
               onAddText={handleAddText}
               onUpdateText={handleUpdateText}
               onDeleteText={handleDeleteText}
               onDuplicateText={handleDuplicateText}
-              onSelectText={setSelectedTextId}
+              onSelectText={handleSelectText}
               onToggleVisibility={handleToggleVisibility}
               onApplyPreset={handleApplyPreset}
             />
@@ -401,6 +680,38 @@ function App() {
       <div className="flex-1 flex flex-col items-center justify-center overflow-hidden p-6 gap-4">
         {/* Control Buttons */}
         <div className="flex items-center gap-3">
+          {/* Undo Button */}
+          <button
+            onClick={handleUndo}
+            disabled={historyIndex <= 0}
+            className={`text-white p-3 rounded-lg font-medium transition-all shadow-lg ${
+              historyIndex <= 0 
+                ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
+                : 'bg-gray-800 hover:bg-gray-700 hover:shadow-xl'
+            }`}
+            title="Undo (Cmd/Ctrl+Z)"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+          </button>
+          
+          {/* Redo Button */}
+          <button
+            onClick={handleRedo}
+            disabled={historyIndex >= history.length - 1}
+            className={`text-white p-3 rounded-lg font-medium transition-all shadow-lg ${
+              historyIndex >= history.length - 1 
+                ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
+                : 'bg-gray-800 hover:bg-gray-700 hover:shadow-xl'
+            }`}
+            title="Redo (Cmd/Ctrl+Shift+Z)"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+            </svg>
+          </button>
+
           <button
             onClick={handleRefresh}
             className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
@@ -427,16 +738,41 @@ function App() {
               </svg>
             )}
           </button>
+
+          <button
+            onClick={handleDownloadVideo}
+            disabled={true}
+            className="bg-gray-800 text-white p-3 rounded-lg font-medium shadow-lg opacity-50 cursor-not-allowed relative"
+            title="Download feature temporarily disabled"
+          >
+            {isProcessing ? (
+              <div className="relative">
+                <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {processingProgress > 0 && (
+                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs whitespace-nowrap">
+                    {processingProgress}%
+                  </div>
+                )}
+              </div>
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            )}
+          </button>
         </div>
 
         <div className="w-full max-w-md h-full rounded-2xl overflow-hidden shadow-2xl">
           <VideoPlayer
             videoUrl={selectedVideo.src}
             textElements={textElements}
-            selectedTextId={selectedTextId}
+            selectedTextIds={selectedTextIds}
             onTextPositionChange={handleTextPositionChange}
-            onSelectText={setSelectedTextId}
+            onSelectText={handleSelectText}
             onUpdateText={handleUpdateText}
+            onBatchUpdateText={handleBatchUpdateText}
             onVideoReady={setVideoRef}
             refreshTrigger={refreshKey}
           />
