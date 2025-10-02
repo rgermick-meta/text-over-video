@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import html2canvas from 'html2canvas';
 import { VideoPlayer } from './components/VideoPlayer';
 import { TextEditor } from './components/TextEditor';
 import { VideoPicker } from './components/VideoPicker';
@@ -586,19 +585,164 @@ function App() {
   };
 
   const handleDownloadScreenshot = async () => {
-    if (!videoContainerRef.current) return;
+    if (!videoRef || !videoContainerRef.current) return;
 
     try {
-      // Use html2canvas to capture the exact rendered DOM
-      const canvas = await html2canvas(videoContainerRef.current, {
-        allowTaint: true,
-        useCORS: true,
-        backgroundColor: '#000000',
-        scale: 2, // Higher quality screenshot (2x resolution)
-        logging: false,
-      });
+      // Create canvas matching video dimensions
+      const canvas = document.createElement('canvas');
+      const containerRect = videoContainerRef.current.getBoundingClientRect();
+      
+      // Use actual video dimensions for higher quality
+      canvas.width = videoRef.videoWidth || 1080;
+      canvas.height = videoRef.videoHeight || 1920;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-      // Convert canvas to blob and download
+      // Draw video frame
+      ctx.drawImage(videoRef, 0, 0, canvas.width, canvas.height);
+
+      // Calculate scale factors between container and canvas
+      const scaleX = canvas.width / containerRect.width;
+      const scaleY = canvas.height / containerRect.height;
+
+      // Draw each visible text element
+      for (const text of textElements.filter(t => t.visible)) {
+        ctx.save();
+
+        // Calculate position in canvas pixels
+        const x = (text.position.x / 100) * canvas.width;
+        const y = (text.position.y / 100) * canvas.height;
+
+        // Apply transformations
+        ctx.translate(x, y);
+        ctx.rotate((text.rotation * Math.PI) / 180);
+        ctx.globalAlpha = text.opacity;
+
+        // Set font properties
+        const scaledFontSize = text.fontSize * scaleY;
+        ctx.font = `${text.italic ? 'italic ' : ''}${text.bold ? 'bold ' : ''}${scaledFontSize}px "${text.fontFamily}"`;
+        ctx.textAlign = text.textAlign;
+        ctx.letterSpacing = `${text.letterSpacing * scaleX}px`;
+
+        // Split into lines and calculate metrics
+        const lines = text.text.split('\n');
+        const lineHeight = scaledFontSize * text.lineHeight;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const lineY = i * lineHeight;
+
+          // Draw background if enabled
+          if (text.background.enabled) {
+            const metrics = ctx.measureText(line);
+            const padding = text.background.padding * scaleX;
+            const bgWidth = metrics.width + padding * 2;
+            const bgHeight = scaledFontSize + padding * 2;
+            
+            let bgX = -padding;
+            if (text.textAlign === 'center') bgX = -bgWidth / 2;
+            if (text.textAlign === 'right') bgX = -bgWidth;
+            
+            const bgY = lineY - scaledFontSize - padding / 2;
+
+            ctx.save();
+            ctx.globalAlpha = text.background.opacity || 0.5;
+
+            // Background gradient or solid
+            if (text.background.gradient?.enabled) {
+              const grad = ctx.createLinearGradient(
+                bgX, bgY,
+                bgX + bgWidth, bgY + bgHeight
+              );
+              grad.addColorStop(0, text.background.gradient.colors[0]);
+              grad.addColorStop(1, text.background.gradient.colors[1]);
+              ctx.fillStyle = grad;
+            } else {
+              ctx.fillStyle = text.background.color;
+            }
+
+            // Draw background with border radius
+            if (text.background.borderRadius > 0) {
+              const radius = text.background.borderRadius * scaleX;
+              ctx.beginPath();
+              ctx.roundRect(bgX, bgY, bgWidth, bgHeight, radius);
+              ctx.fill();
+            } else {
+              ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+            }
+
+            // Background stroke
+            if (text.background.stroke?.enabled) {
+              ctx.strokeStyle = text.background.stroke.color;
+              ctx.lineWidth = text.background.stroke.width * scaleX;
+              if (text.background.borderRadius > 0) {
+                ctx.beginPath();
+                ctx.roundRect(bgX, bgY, bgWidth, bgHeight, text.background.borderRadius * scaleX);
+                ctx.stroke();
+              } else {
+                ctx.strokeRect(bgX, bgY, bgWidth, bgHeight);
+              }
+            }
+
+            ctx.restore();
+          }
+
+          // Set shadow BEFORE drawing text (for gradients, we'll apply it to each layer)
+          if (text.shadow.enabled) {
+            ctx.shadowColor = text.shadow.color;
+            ctx.shadowBlur = text.shadow.blur * scaleX;
+            ctx.shadowOffsetX = text.shadow.offsetX * scaleX;
+            ctx.shadowOffsetY = text.shadow.offsetY * scaleY;
+          }
+
+          // Draw text stroke if enabled (drawn first, before fill)
+          if (text.stroke.enabled) {
+            ctx.strokeStyle = text.stroke.color;
+            ctx.lineWidth = text.stroke.width * scaleX;
+            ctx.lineJoin = 'round';
+            ctx.miterLimit = 2;
+            ctx.strokeText(line, 0, lineY);
+          }
+
+          // Draw text fill
+          if (text.gradient.enabled) {
+            // Create gradient for text
+            const metrics = ctx.measureText(line);
+            let gradX = 0;
+            if (text.textAlign === 'center') gradX = -metrics.width / 2;
+            if (text.textAlign === 'right') gradX = -metrics.width;
+
+            const angleRad = (text.gradient.angle * Math.PI) / 180;
+            const gradientLength = Math.abs(metrics.width * Math.cos(angleRad)) + 
+                                   Math.abs(scaledFontSize * Math.sin(angleRad));
+            
+            const x0 = gradX;
+            const y0 = lineY - scaledFontSize;
+            const x1 = gradX + gradientLength * Math.cos(angleRad);
+            const y1 = lineY - scaledFontSize + gradientLength * Math.sin(angleRad);
+
+            const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+            gradient.addColorStop(0, text.gradient.colors[0]);
+            gradient.addColorStop(1, text.gradient.colors[1]);
+            ctx.fillStyle = gradient;
+          } else {
+            ctx.fillStyle = text.color;
+          }
+
+          ctx.fillText(line, 0, lineY);
+
+          // Reset shadow for next line
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+        }
+
+        ctx.restore();
+      }
+
+      // Convert to blob and download
       canvas.toBlob((blob) => {
         if (!blob) return;
         
