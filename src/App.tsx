@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { VideoPlayer } from './components/VideoPlayer';
 import { TextEditor } from './components/TextEditor';
 import { VideoPicker } from './components/VideoPicker';
@@ -18,6 +19,7 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   
   // Undo/Redo state
   const [history, setHistory] = useState<TextElement[][]>([[]]);
@@ -584,108 +586,16 @@ function App() {
   };
 
   const handleDownloadScreenshot = async () => {
-    if (!videoRef) return;
+    if (!videoContainerRef.current) return;
 
     try {
-      // Create a canvas to capture the video frame with text overlays
-      const canvas = document.createElement('canvas');
-      
-      // Set canvas size to match video dimensions (9:16 aspect ratio)
-      canvas.width = videoRef.videoWidth || 1080;
-      canvas.height = videoRef.videoHeight || 1920;
-      
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Draw video frame
-      ctx.drawImage(videoRef, 0, 0, canvas.width, canvas.height);
-
-      // Draw text overlays
-      textElements.filter(t => t.visible).forEach(text => {
-        ctx.save();
-
-        // Calculate position in pixels
-        const x = (text.position.x / 100) * canvas.width;
-        const y = (text.position.y / 100) * canvas.height;
-
-        // Move to text position and apply rotation
-        ctx.translate(x, y);
-        ctx.rotate((text.rotation * Math.PI) / 180);
-
-        // Set text properties
-        ctx.font = `${text.italic ? 'italic ' : ''}${text.bold ? 'bold ' : ''}${text.fontSize}px "${text.fontFamily}"`;
-        ctx.textAlign = text.textAlign;
-        ctx.globalAlpha = text.opacity;
-        ctx.letterSpacing = `${text.letterSpacing}px`;
-
-        // Split text into lines
-        const lines = text.text.split('\n');
-        const lineHeight = text.fontSize * text.lineHeight;
-
-        lines.forEach((line, index) => {
-          const lineY = index * lineHeight;
-
-          // Draw background if enabled
-          if (text.background.enabled) {
-            const metrics = ctx.measureText(line);
-            const bgWidth = metrics.width + text.background.padding * 2;
-            const bgHeight = text.fontSize + text.background.padding * 2;
-            const bgX = text.textAlign === 'center' ? -bgWidth / 2 : text.textAlign === 'right' ? -bgWidth : 0;
-            const bgY = lineY - text.fontSize + text.background.padding / 2;
-
-            ctx.globalAlpha = text.background.opacity || 0.5;
-            
-            // Draw background shape
-            ctx.fillStyle = text.background.color;
-            if (text.background.borderRadius > 0) {
-              ctx.beginPath();
-              ctx.roundRect(bgX, bgY, bgWidth, bgHeight, text.background.borderRadius);
-              ctx.fill();
-            } else {
-              ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-            }
-            
-            ctx.globalAlpha = text.opacity;
-          }
-
-          // Draw text stroke if enabled
-          if (text.stroke.enabled) {
-            ctx.strokeStyle = text.stroke.color;
-            ctx.lineWidth = text.stroke.width;
-            ctx.strokeText(line, 0, lineY);
-          }
-
-          // Draw shadow if enabled
-          if (text.shadow.enabled) {
-            ctx.shadowColor = text.shadow.color;
-            ctx.shadowBlur = text.shadow.blur;
-            ctx.shadowOffsetX = text.shadow.offsetX;
-            ctx.shadowOffsetY = text.shadow.offsetY;
-          }
-
-          // Draw text with gradient or solid color
-          if (text.gradient.enabled) {
-            const gradient = ctx.createLinearGradient(
-              -100, -100,
-              100, 100
-            );
-            gradient.addColorStop(0, text.gradient.colors[0]);
-            gradient.addColorStop(1, text.gradient.colors[1]);
-            ctx.fillStyle = gradient;
-          } else {
-            ctx.fillStyle = text.color;
-          }
-
-          ctx.fillText(line, 0, lineY);
-
-          // Reset shadow
-          ctx.shadowColor = 'transparent';
-          ctx.shadowBlur = 0;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
-        });
-
-        ctx.restore();
+      // Use html2canvas to capture the exact rendered DOM
+      const canvas = await html2canvas(videoContainerRef.current, {
+        allowTaint: true,
+        useCORS: true,
+        backgroundColor: '#000000',
+        scale: 2, // Higher quality screenshot (2x resolution)
+        logging: false,
       });
 
       // Convert canvas to blob and download
@@ -845,7 +755,7 @@ function App() {
           </button>
         </div>
 
-        <div className="w-full max-w-md h-full rounded-2xl overflow-hidden shadow-2xl">
+        <div ref={videoContainerRef} className="w-full max-w-md h-full rounded-2xl overflow-hidden shadow-2xl">
           <VideoPlayer
             videoUrl={selectedVideo.src}
             textElements={textElements}
