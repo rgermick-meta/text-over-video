@@ -624,21 +624,12 @@ function App() {
       const encodedData = encodeURIComponent(JSON.stringify(shareData));
       const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encodedData}`;
       
-      // Try to use native share API if available (mobile)
-      if (navigator.share) {
-        await navigator.share({
-          title: 'Text Over Video',
-          text: 'Check out my text overlay design!',
-          url: shareUrl,
-        });
-      } else {
-        // Fallback: Copy to clipboard
-        await navigator.clipboard.writeText(shareUrl);
-        alert('Share link copied to clipboard! 🎉\n\nYou can paste and share this link with anyone.');
-      }
+      // Copy to clipboard
+      await navigator.clipboard.writeText(shareUrl);
+      alert('Share link copied to clipboard! 🎉\n\nYou can paste and share this link with anyone.');
     } catch (error) {
       console.error('Error sharing:', error);
-      alert('Failed to share. Please try again.');
+      alert('Failed to copy link. Please try again.');
     }
   };
 
