@@ -436,24 +436,27 @@ function App() {
       historyTimeoutRef.current = null;
     }
     
-    const newTexts: TextElement[] = ids.map((id, index) => {
-      const textToDuplicate = textElements.find(t => t.id === id);
-      if (!textToDuplicate) return null;
-      
-      return {
-        ...textToDuplicate,
-        id: `text-${Date.now()}-${index}`,
-        position: {
-          x: textToDuplicate.position.x + 5,
-          y: textToDuplicate.position.y + 5,
-        },
-        animationDistance: textToDuplicate.animationDistance ?? 100,
-        background: {
-          ...textToDuplicate.background,
-          opacity: textToDuplicate.background.opacity ?? 0.5,
-        },
-      };
-    }).filter((t): t is TextElement => t !== null);
+    const newTexts: TextElement[] = ids
+      .map((id, index) => {
+        const textToDuplicate = textElements.find(t => t.id === id);
+        if (!textToDuplicate) return null;
+        
+        const newText: TextElement = {
+          ...textToDuplicate,
+          id: `text-${Date.now()}-${index}`,
+          position: {
+            x: textToDuplicate.position.x + 5,
+            y: textToDuplicate.position.y + 5,
+          },
+          animationDistance: textToDuplicate.animationDistance ?? 100,
+          background: {
+            ...textToDuplicate.background,
+            opacity: textToDuplicate.background.opacity ?? 0.5,
+          },
+        };
+        return newText;
+      })
+      .filter((t): t is TextElement => t !== null);
     
     setTextElements([...textElements, ...newTexts]);
     setSelectedTextIds(newTexts.map(t => t.id));

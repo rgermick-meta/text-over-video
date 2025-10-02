@@ -91,8 +91,6 @@ export const TextEditor: React.FC<TextEditorProps> = ({
     { value: 'marqueeRight', label: 'Marquee Right →' },
   ];
 
-  const presetCategories = ['Headers', 'Special', 'Body', 'Fun', 'Elegant'];
-
   const emojiCategories: Record<string, { label: string; emojis: string[] }> = {
     smileys: {
       label: '😀 Smileys',

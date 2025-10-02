@@ -1,5 +1,5 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { fetchFile } from '@ffmpeg/util';
 import { TextElement } from '../types';
 
 /**
@@ -339,8 +339,8 @@ export const processVideoWithText = async (
   await ffmpeg.deleteFile('input.mp4');
   await ffmpeg.deleteFile('output.mp4');
   
-  // Convert to blob
-  return new Blob([data], { type: 'video/mp4' });
+  // Convert to blob - FFmpeg returns Uint8Array, cast to BlobPart
+  return new Blob([data as BlobPart], { type: 'video/mp4' });
 };
 
 /**
