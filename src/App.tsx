@@ -6,7 +6,6 @@ import { SAMPLE_VIDEOS } from './data/animations';
 import { TextElement, VideoClip } from './types';
 import { loadAllGoogleFonts, TEXT_STYLE_PRESETS } from './utils/googleFonts';
 import { loadCustomPresets } from './utils/presetManager';
-import { processVideoWithText, downloadVideo } from './utils/videoExport';
 
 function App() {
   const [selectedVideo, setSelectedVideo] = useState<VideoClip>(
@@ -19,8 +18,6 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoRef, setVideoRef] = useState<HTMLVideoElement | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState(0);
   
   // Undo/Redo state
   const [history, setHistory] = useState<TextElement[][]>([[]]);
@@ -586,34 +583,128 @@ function App() {
     }
   };
 
-  const handleDownloadVideo = async () => {
-    if (isProcessing) return;
+  const handleDownloadScreenshot = async () => {
+    if (!videoRef) return;
 
     try {
-      setIsProcessing(true);
-      setProcessingProgress(0);
+      // Create a canvas to capture the video frame with text overlays
+      const canvas = document.createElement('canvas');
+      
+      // Set canvas size to match video dimensions (9:16 aspect ratio)
+      canvas.width = videoRef.videoWidth || 1080;
+      canvas.height = videoRef.videoHeight || 1920;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-      // Process video with text overlays
-      const videoBlob = await processVideoWithText(
-        selectedVideo.src,
-        textElements,
-        (progress) => setProcessingProgress(progress)
-      );
+      // Draw video frame
+      ctx.drawImage(videoRef, 0, 0, canvas.width, canvas.height);
 
-      // Download the processed video
-      const filename = `${selectedVideo.name.replace(/\.[^/.]+$/, '')}-with-text.mp4`;
-      downloadVideo(videoBlob, filename);
+      // Draw text overlays
+      textElements.filter(t => t.visible).forEach(text => {
+        ctx.save();
 
-      setProcessingProgress(100);
-      setTimeout(() => {
-        setIsProcessing(false);
-        setProcessingProgress(0);
-      }, 1000);
+        // Calculate position in pixels
+        const x = (text.position.x / 100) * canvas.width;
+        const y = (text.position.y / 100) * canvas.height;
+
+        // Move to text position and apply rotation
+        ctx.translate(x, y);
+        ctx.rotate((text.rotation * Math.PI) / 180);
+
+        // Set text properties
+        ctx.font = `${text.italic ? 'italic ' : ''}${text.bold ? 'bold ' : ''}${text.fontSize}px "${text.fontFamily}"`;
+        ctx.textAlign = text.textAlign;
+        ctx.globalAlpha = text.opacity;
+        ctx.letterSpacing = `${text.letterSpacing}px`;
+
+        // Split text into lines
+        const lines = text.text.split('\n');
+        const lineHeight = text.fontSize * text.lineHeight;
+
+        lines.forEach((line, index) => {
+          const lineY = index * lineHeight;
+
+          // Draw background if enabled
+          if (text.background.enabled) {
+            const metrics = ctx.measureText(line);
+            const bgWidth = metrics.width + text.background.padding * 2;
+            const bgHeight = text.fontSize + text.background.padding * 2;
+            const bgX = text.textAlign === 'center' ? -bgWidth / 2 : text.textAlign === 'right' ? -bgWidth : 0;
+            const bgY = lineY - text.fontSize + text.background.padding / 2;
+
+            ctx.globalAlpha = text.background.opacity || 0.5;
+            
+            // Draw background shape
+            ctx.fillStyle = text.background.color;
+            if (text.background.borderRadius > 0) {
+              ctx.beginPath();
+              ctx.roundRect(bgX, bgY, bgWidth, bgHeight, text.background.borderRadius);
+              ctx.fill();
+            } else {
+              ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+            }
+            
+            ctx.globalAlpha = text.opacity;
+          }
+
+          // Draw text stroke if enabled
+          if (text.stroke.enabled) {
+            ctx.strokeStyle = text.stroke.color;
+            ctx.lineWidth = text.stroke.width;
+            ctx.strokeText(line, 0, lineY);
+          }
+
+          // Draw shadow if enabled
+          if (text.shadow.enabled) {
+            ctx.shadowColor = text.shadow.color;
+            ctx.shadowBlur = text.shadow.blur;
+            ctx.shadowOffsetX = text.shadow.offsetX;
+            ctx.shadowOffsetY = text.shadow.offsetY;
+          }
+
+          // Draw text with gradient or solid color
+          if (text.gradient.enabled) {
+            const gradient = ctx.createLinearGradient(
+              -100, -100,
+              100, 100
+            );
+            gradient.addColorStop(0, text.gradient.colors[0]);
+            gradient.addColorStop(1, text.gradient.colors[1]);
+            ctx.fillStyle = gradient;
+          } else {
+            ctx.fillStyle = text.color;
+          }
+
+          ctx.fillText(line, 0, lineY);
+
+          // Reset shadow
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+        });
+
+        ctx.restore();
+      });
+
+      // Convert canvas to blob and download
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${selectedVideo.name.replace(/\.[^/.]+$/, '')}-screenshot-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+
     } catch (error) {
-      console.error('Error processing video:', error);
-      alert('Failed to process video. Please try again.');
-      setIsProcessing(false);
-      setProcessingProgress(0);
+      console.error('Error capturing screenshot:', error);
+      alert('Failed to capture screenshot. Please try again.');
     }
   };
 
@@ -743,27 +834,14 @@ function App() {
           </button>
 
           <button
-            onClick={handleDownloadVideo}
-            disabled={true}
-            className="bg-gray-800 text-white p-3 rounded-lg font-medium shadow-lg opacity-50 cursor-not-allowed relative"
-            title="Download feature temporarily disabled"
+            onClick={handleDownloadScreenshot}
+            className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
+            title="Download screenshot of current frame"
           >
-            {isProcessing ? (
-              <div className="relative">
-                <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {processingProgress > 0 && (
-                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs whitespace-nowrap">
-                    {processingProgress}%
-                  </div>
-                )}
-              </div>
-            ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            )}
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
           </button>
         </div>
 
