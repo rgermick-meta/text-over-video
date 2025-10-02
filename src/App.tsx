@@ -32,6 +32,44 @@ function App() {
         return;
       }
 
+      // Arrow keys to move selected text
+      if (selectedTextId && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        const selectedText = textElements.find(t => t.id === selectedTextId);
+        if (!selectedText || !videoRef) return;
+
+        // Calculate pixel step based on shift key (1px or 10px)
+        const pixelStep = e.shiftKey ? 10 : 1;
+        
+        // Convert pixel movement to percentage based on video container dimensions
+        // Using the video player's aspect ratio (9:16)
+        const containerWidth = videoRef.clientHeight * (9 / 16); // aspect ratio 9:16
+        const containerHeight = videoRef.clientHeight;
+        
+        const percentX = (pixelStep / containerWidth) * 100;
+        const percentY = (pixelStep / containerHeight) * 100;
+
+        let newX = selectedText.position.x;
+        let newY = selectedText.position.y;
+
+        switch (e.key) {
+          case 'ArrowLeft':
+            newX = Math.max(0, selectedText.position.x - percentX);
+            break;
+          case 'ArrowRight':
+            newX = Math.min(100, selectedText.position.x + percentX);
+            break;
+          case 'ArrowUp':
+            newY = Math.max(0, selectedText.position.y - percentY);
+            break;
+          case 'ArrowDown':
+            newY = Math.min(100, selectedText.position.y + percentY);
+            break;
+        }
+
+        handleUpdateText(selectedTextId, { position: { x: newX, y: newY } });
+      }
+
       // Delete selected text
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedTextId) {
@@ -63,6 +101,11 @@ function App() {
               x: copiedText.position.x + 5,
               y: copiedText.position.y + 5,
             },
+            animationDistance: copiedText.animationDistance ?? 100,
+            background: {
+              ...copiedText.background,
+              opacity: copiedText.background.opacity ?? 0.5,
+            },
           };
           setTextElements(prev => [...prev, newText]);
           setSelectedTextId(newText.id);
@@ -82,6 +125,11 @@ function App() {
                 x: textToDuplicate.position.x + 5,
                 y: textToDuplicate.position.y + 5,
               },
+              animationDistance: textToDuplicate.animationDistance ?? 100,
+              background: {
+                ...textToDuplicate.background,
+                opacity: textToDuplicate.background.opacity ?? 0.5,
+              },
             };
             setTextElements(prev => [...prev, newText]);
             setSelectedTextId(newText.id);
@@ -92,7 +140,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTextId, textElements, copiedText]);
+  }, [selectedTextId, textElements, copiedText, videoRef]);
 
   const handleSelectVideo = (video: VideoClip) => {
     setSelectedVideo(video);
@@ -134,9 +182,27 @@ function App() {
       },
       background: {
         enabled: false,
-        color: 'rgba(0,0,0,0.5)',
+        color: '#000000',
         padding: 12,
         borderRadius: 8,
+        opacity: 0.5,
+        gradient: {
+          enabled: false,
+          colors: ['#FF006E', '#8B5CF6'],
+          angle: 135,
+        },
+        stroke: {
+          enabled: false,
+          color: '#ffffff',
+          width: 2,
+        },
+        shadow: {
+          enabled: false,
+          color: '#000000',
+          blur: 10,
+          offsetX: 0,
+          offsetY: 4,
+        },
       },
       gradient: {
         enabled: false,
@@ -145,6 +211,7 @@ function App() {
       },
       animation: 'fadeIn',
       animationDuration: 1,
+      animationDistance: 100,
     };
 
     const newText: TextElement = templateText
@@ -155,6 +222,11 @@ function App() {
           position: {
             x: Math.min(templateText.position.x + 5, 95),
             y: Math.min(templateText.position.y + 5, 95),
+          },
+          animationDistance: templateText.animationDistance ?? 100,
+          background: {
+            ...templateText.background,
+            opacity: templateText.background.opacity ?? 0.5,
           },
         }
       : {
@@ -188,6 +260,11 @@ function App() {
       position: {
         x: textToDuplicate.position.x + 5,
         y: textToDuplicate.position.y + 5,
+      },
+      animationDistance: textToDuplicate.animationDistance ?? 100,
+      background: {
+        ...textToDuplicate.background,
+        opacity: textToDuplicate.background.opacity ?? 0.5,
       },
     };
     setTextElements([...textElements, newText]);
@@ -261,7 +338,7 @@ function App() {
   return (
     <div className="h-screen bg-black flex flex-col lg:flex-row gap-6 p-6 overflow-hidden">
       {/* Control Panel */}
-      <div className="lg:w-96 flex-shrink-0 flex flex-col gap-4">
+      <div className="lg:w-[450px] flex-shrink-0 flex flex-col gap-4">
         {/* Tab Switcher */}
         <div className="bg-gray-800 rounded-xl p-2 grid grid-cols-2 gap-2">
           <button

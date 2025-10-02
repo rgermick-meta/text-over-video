@@ -53,66 +53,66 @@ body {
 
 @keyframes slideUp {
   from {
-    transform: translate(-50%, 20%) rotate(var(--rotation, 0deg));
+    transform: translateY(var(--animation-distance, 100%)) rotate(var(--rotation, 0deg));
     opacity: 0;
   }
   to {
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg));
+    transform: translateY(0) rotate(var(--rotation, 0deg));
     opacity: 1;
   }
 }
 
 @keyframes slideDown {
   from {
-    transform: translate(-50%, -120%) rotate(var(--rotation, 0deg));
+    transform: translateY(calc(-1 * var(--animation-distance, 100%))) rotate(var(--rotation, 0deg));
     opacity: 0;
   }
   to {
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg));
+    transform: translateY(0) rotate(var(--rotation, 0deg));
     opacity: 1;
   }
 }
 
 @keyframes slideLeft {
   from {
-    transform: translate(50%, -50%) rotate(var(--rotation, 0deg));
+    transform: translateX(var(--animation-distance, 100%)) rotate(var(--rotation, 0deg));
     opacity: 0;
   }
   to {
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg));
+    transform: translateX(0) rotate(var(--rotation, 0deg));
     opacity: 1;
   }
 }
 
 @keyframes slideRight {
   from {
-    transform: translate(-150%, -50%) rotate(var(--rotation, 0deg));
+    transform: translateX(calc(-1 * var(--animation-distance, 100%))) rotate(var(--rotation, 0deg));
     opacity: 0;
   }
   to {
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg));
+    transform: translateX(0) rotate(var(--rotation, 0deg));
     opacity: 1;
   }
 }
 
 @keyframes bounce {
   0%, 100% {
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) scale(1);
+    transform: rotate(var(--rotation, 0deg)) scale(1);
     animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
   }
   50% {
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) scale(1.15);
+    transform: rotate(var(--rotation, 0deg)) scale(1.15);
     animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
   }
 }
 
 @keyframes zoom {
   from {
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) scale(0);
+    transform: rotate(var(--rotation, 0deg)) scale(0);
     opacity: 0;
   }
   to {
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) scale(1);
+    transform: rotate(var(--rotation, 0deg)) scale(1);
     opacity: 1;
   }
 }
@@ -120,29 +120,29 @@ body {
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) scale(1);
+    transform: rotate(var(--rotation, 0deg)) scale(1);
   }
   50% {
     opacity: 0.8;
-    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) scale(1.05);
+    transform: rotate(var(--rotation, 0deg)) scale(1.05);
   }
 }
 
 @keyframes marqueeLeft {
-  from {
-    transform: translateX(0);
+  0% {
+    transform: translateX(0%);
   }
-  to {
-    transform: translateX(-50%);
+  100% {
+    transform: translateX(-25%);
   }
 }
 
 @keyframes marqueeRight {
-  from {
-    transform: translateX(-50%);
+  0% {
+    transform: translateX(-25%);
   }
-  to {
-    transform: translateX(0);
+  100% {
+    transform: translateX(0%);
   }
 }
 

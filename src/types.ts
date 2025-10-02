@@ -55,6 +55,24 @@ export interface TextElement {
     color: string;
     padding: number;
     borderRadius: number;
+    opacity?: number;
+    gradient?: {
+      enabled: boolean;
+      colors: [string, string];
+      angle: number;
+    };
+    stroke?: {
+      enabled: boolean;
+      color: string;
+      width: number;
+    };
+    shadow?: {
+      enabled: boolean;
+      color: string;
+      blur: number;
+      offsetX: number;
+      offsetY: number;
+    };
   };
   gradient: {
     enabled: boolean;
@@ -63,5 +81,6 @@ export interface TextElement {
   };
   animation: TextAnimation;
   animationDuration: number;
+  animationDistance?: number; // percentage for directional animations (optional for backward compatibility)
 }
 

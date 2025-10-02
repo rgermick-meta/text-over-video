@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TextElement, TextAnimation } from '../types';
 import { FONT_CATEGORIES, COLOR_PALETTES, TEXT_STYLE_PRESETS, loadGoogleFont } from '../utils/googleFonts';
 
@@ -31,6 +31,27 @@ export const TextEditor: React.FC<TextEditorProps> = ({
   const [showColorPalette, setShowColorPalette] = useState(false);
   const [activeColorPalette, setActiveColorPalette] = useState<keyof typeof COLOR_PALETTES>('modern');
   const [showPresets, setShowPresets] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState<string>('smileys');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   const animations: { value: TextAnimation; label: string }[] = [
     { value: 'none', label: 'None' },
@@ -47,6 +68,81 @@ export const TextEditor: React.FC<TextEditorProps> = ({
   ];
 
   const presetCategories = ['Headers', 'Special', 'Body', 'Fun', 'Elegant'];
+
+  const emojiCategories: Record<string, { label: string; emojis: string[] }> = {
+    smileys: {
+      label: '😀 Smileys',
+      emojis: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '🫠', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '☺️', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🫢', '🫣', '🤫', '🤔', '🫡', '🤐', '🤨', '😐', '😑', '😶', '🫥', '😶‍🌫️', '😏', '😒', '🙄', '😬', '😮‍💨', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '😵‍💫', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '😕', '🫤', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '🥹', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾']
+    },
+    gestures: {
+      label: '👋 Gestures',
+      emojis: ['👋', '🤚', '🖐', '✋', '🖖', '🫱', '🫲', '🫳', '🫴', '👌', '🤌', '🤏', '✌️', '🤞', '🫰', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '🫵', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '🫶', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁', '👅', '👄', '🫦']
+    },
+    people: {
+      label: '👤 People',
+      emojis: ['👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '🧔', '🧔‍♂️', '🧔‍♀️', '👨‍🦰', '👨‍🦱', '👨‍🦳', '👨‍🦲', '👩', '👩‍🦰', '🧑‍🦰', '👩‍🦱', '🧑‍🦱', '👩‍🦳', '🧑‍🦳', '👩‍🦲', '🧑‍🦲', '👱‍♀️', '👱‍♂️', '🧓', '👴', '👵', '🙍', '🙍‍♂️', '🙍‍♀️', '🙎', '🙎‍♂️', '🙎‍♀️', '🙅', '🙅‍♂️', '🙅‍♀️', '🙆', '🙆‍♂️', '🙆‍♀️', '💁', '💁‍♂️', '💁‍♀️', '🙋', '🙋‍♂️', '🙋‍♀️', '🧏', '🧏‍♂️', '🧏‍♀️', '🙇', '🙇‍♂️', '🙇‍♀️', '🤦', '🤦‍♂️', '🤦‍♀️', '🤷', '🤷‍♂️', '🤷‍♀️', '🧑‍⚕️', '👨‍⚕️', '👩‍⚕️', '🧑‍🎓', '👨‍🎓', '👩‍🎓', '🧑‍🏫', '👨‍🏫', '👩‍🏫', '🧑‍⚖️', '👨‍⚖️', '👩‍⚖️', '🧑‍🌾', '👨‍🌾', '👩‍🌾', '🧑‍🍳', '👨‍🍳', '👩‍🍳', '🧑‍🔧', '👨‍🔧', '👩‍🔧', '🧑‍🏭', '👨‍🏭', '👩‍🏭', '🧑‍💼', '👨‍💼', '👩‍💼', '🧑‍🔬', '👨‍🔬', '👩‍🔬', '🧑‍💻', '👨‍💻', '👩‍💻', '🧑‍🎤', '👨‍🎤', '👩‍🎤', '🧑‍🎨', '👨‍🎨', '👩‍🎨', '🧑‍✈️', '👨‍✈️', '👩‍✈️', '🧑‍🚀', '👨‍🚀', '👩‍🚀', '🧑‍🚒', '👨‍🚒', '👩‍🚒', '👮', '👮‍♂️', '👮‍♀️', '🕵', '🕵️‍♂️', '🕵️‍♀️', '💂', '💂‍♂️', '💂‍♀️', '🥷', '👷', '👷‍♂️', '👷‍♀️', '🫅', '🤴', '👸', '👳', '👳‍♂️', '👳‍♀️', '👲', '🧕', '🤵', '🤵‍♂️', '🤵‍♀️', '👰', '👰‍♂️', '👰‍♀️', '🤰', '🫃', '🫄', '🤱', '👩‍🍼', '👨‍🍼', '🧑‍🍼']
+    },
+    hearts: {
+      label: '❤️ Hearts',
+      emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '❤️‍🔥', '❤️‍🩹', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '♥️', '💌', '💋', '😍', '🥰', '😘', '😻', '💑', '💏', '👩‍❤️‍👨', '👨‍❤️‍👨', '👩‍❤️‍👩', '💑', '👩‍❤️‍💋‍👨', '👨‍❤️‍💋‍👨', '👩‍❤️‍💋‍👩']
+    },
+    animals: {
+      label: '🐶 Animals',
+      emojis: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐽', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🪱', '🐛', '🦋', '🐌', '🐞', '🐜', '🪰', '🪲', '🪳', '🦟', '🦗', '🕷', '🕸', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🦭', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🦣', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🦬', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐩', '🦮', '🐕‍🦺', '🐈', '🐈‍⬛', '🪶', '🐓', '🦃', '🦤', '🦚', '🦜', '🦢', '🦩', '🕊', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀', '🐿', '🦔']
+    },
+    food: {
+      label: '🍕 Food',
+      emojis: ['🍎', '🍏', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶', '🫑', '🌽', '🥕', '🫒', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🫓', '🥪', '🥙', '🧆', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🥫', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🫘', '🍯', '🥛', '🍼', '🫖', '☕', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🍾', '🧊', '🥄', '🍴', '🍽', '🥣', '🥡', '🥢', '🧂']
+    },
+    activities: {
+      label: '⚽ Activities',
+      emojis: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸', '🥌', '🎿', '⛷', '🏂', '🪂', '🏋️', '🏋️‍♂️', '🏋️‍♀️', '🤼', '🤼‍♂️', '🤼‍♀️', '🤸', '🤸‍♂️', '🤸‍♀️', '⛹️', '⛹️‍♂️', '⛹️‍♀️', '🤺', '🤾', '🤾‍♂️', '🤾‍♀️', '🏌️', '🏌️‍♂️', '🏌️‍♀️', '🏇', '🧘', '🧘‍♂️', '🧘‍♀️', '🏄', '🏄‍♂️', '🏄‍♀️', '🏊', '🏊‍♂️', '🏊‍♀️', '🤽', '🤽‍♂️', '🤽‍♀️', '🚣', '🚣‍♂️', '🚣‍♀️', '🧗', '🧗‍♂️', '🧗‍♀️', '🚵', '🚵‍♂️', '🚵‍♀️', '🚴', '🚴‍♂️', '🚴‍♀️', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖', '🏵', '🎗', '🎫', '🎟', '🎪', '🤹', '🤹‍♂️', '🤹‍♀️', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🪘', '🎷', '🎺', '🪗', '🎸', '🪕', '🎻', '🎲', '♟', '🎯', '🎳', '🎮', '🎰', '🧩']
+    },
+    travel: {
+      label: '✈️ Travel',
+      emojis: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🦯', '🦽', '🦼', '🛴', '🚲', '🛵', '🏍', '🛺', '🚨', '🚔', '🚍', '🚘', '🚖', '🚡', '🚠', '🚟', '🚃', '🚋', '🚞', '🚝', '🚄', '🚅', '🚈', '🚂', '🚆', '🚇', '🚊', '🚉', '✈️', '🛫', '🛬', '🛩', '💺', '🛰', '🚀', '🛸', '🚁', '🛶', '⛵', '🚤', '🛥', '🛳', '⛴', '🚢', '⚓', '🪝', '⛽', '🚧', '🚦', '🚥', '🚏', '🗺', '🗿', '🗽', '🗼', '🏰', '🏯', '🏟', '🎡', '🎢', '🎠', '⛲', '⛱', '🏖', '🏝', '🏜', '🌋', '⛰', '🏔', '🗻', '🏕', '⛺', '🛖', '🏠', '🏡', '🏘', '🏚', '🏗', '🏭', '🏢', '🏬', '🏣', '🏤', '🏥', '🏦', '🏨', '🏪', '🏫', '🏩', '💒', '🏛', '⛪', '🕌', '🕍', '🛕', '🕋', '⛩', '🛤', '🛣', '🗾', '🎑', '🏞', '🌅', '🌄', '🌠', '🎇', '🎆', '🌇', '🌆', '🏙', '🌃', '🌌', '🌉', '🌁']
+    },
+    objects: {
+      label: '💡 Objects',
+      emojis: ['⌚', '📱', '📲', '💻', '⌨️', '🖥', '🖨', '🖱', '🖲', '🕹', '🗜', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📽', '🎞', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙', '🎚', '🎛', '🧭', '⏱', '⏲', '⏰', '🕰', '⌛', '⏳', '📡', '🔋', '🪫', '🔌', '💡', '🔦', '🕯', '🪔', '🧯', '🛢', '💸', '💵', '💴', '💶', '💷', '🪙', '💰', '💳', '🪪', '💎', '⚖️', '🪜', '🧰', '🪛', '🔧', '🔨', '⚒', '🛠', '⛏', '🪚', '🔩', '⚙️', '🪤', '🧱', '⛓', '🧲', '🔫', '💣', '🧨', '🪓', '🔪', '🗡', '⚔️', '🛡', '🚬', '⚰️', '🪦', '⚱️', '🏺', '🔮', '📿', '🧿', '💈', '⚗️', '🔭', '🔬', '🕳', '🩹', '🩺', '💊', '💉', '🩸', '🧬', '🦠', '🧫', '🧪', '🌡', '🧹', '🪠', '🧺', '🧻', '🚽', '🚰', '🚿', '🛁', '🛀', '🧼', '🪥', '🪒', '🧽', '🪣', '🧴', '🛎', '🔑', '🗝', '🚪', '🪑', '🛋', '🛏', '🛌', '🧸', '🪆', '🖼', '🪞', '🪟', '🛍', '🛒', '🎁', '🎈', '🎏', '🎀', '🪄', '🪅', '🎊', '🎉', '🎎', '🏮', '🎐', '🧧', '✉️', '📩', '📨', '📧', '💌', '📥', '📤', '📦', '🏷', '🪧', '📪', '📫', '📬', '📭', '📮', '📯', '📜', '📃', '📄', '📑', '🧾', '📊', '📈', '📉', '🗒', '🗓', '📆', '📅', '🗑', '📇', '🗃', '🗳', '🗄', '📋', '📁', '📂', '🗂', '🗞', '📰', '📓', '📔', '📒', '📕', '📗', '📘', '📙', '📚', '📖', '🔖', '🧷', '🔗', '📎', '🖇', '📐', '📏', '🧮', '📌', '📍', '✂️', '🖊', '🖋', '✒️', '🖌', '🖍', '📝', '✏️', '🔍', '🔎', '🔏', '🔐', '🔒', '🔓']
+    },
+    nature: {
+      label: '🌸 Nature',
+      emojis: ['💐', '🌸', '💮', '🪷', '🏵', '🌹', '🥀', '🌺', '🌻', '🌼', '🌷', '🌱', '🪴', '🌲', '🌳', '🌴', '🌵', '🌾', '🌿', '☘️', '🍀', '🍁', '🍂', '🍃', '🪹', '🪺', '🍄', '🌰', '🐚', '🪸', '🪨', '⛰', '🏔', '❄️', '☃️', '⛄', '🌬', '💨', '🌪', '🌫', '🌊', '💧', '💦', '☔', '🌂', '⛱', '⚡', '☄️', '🔥', '💥', '✨', '🌟', '⭐', '🌠', '🌌', '☁️', '⛅', '🌤', '🌥', '🌦', '🌧', '⛈', '🌩', '🌨', '☀️', '🌞', '🌝', '🌛', '🌜', '🌚', '🌕', '🌖', '🌗', '🌘', '🌑', '🌒', '🌓', '🌔', '🌙', '🌎', '🌍', '🌏', '🪐', '💫', '⚫', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '🟤', '⚪', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '🟫', '⬛', '⬜', '◼️', '◻️', '◾', '◽', '▪️', '▫️', '🔶', '🔷', '🔸', '🔹', '🔺', '🔻', '💠', '🔘', '🔳', '🔲']
+    },
+    symbols: {
+      label: '🔥 Symbols',
+      emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '💢', '💬', '👁️‍🗨️', '🗨', '🗯', '💭', '💤', '💮', '♨️', '💈', '🛑', '🕛', '🕧', '🕐', '🕜', '🕑', '🕝', '🕒', '🕞', '🕓', '🕟', '🕔', '🕠', '🕕', '🕡', '🕖', '🕢', '🕗', '🕣', '🕘', '🕤', '🕙', '🕥', '🕚', '🕦', '⭐', '🌟', '💫', '✨', '☄️', '💥', '🔥', '🌪', '🌈', '☀️', '🌤', '⛅', '🌥', '☁️', '🌦', '🌧', '⛈', '🌩', '🌨', '❄️', '☃️', '⛄', '🌬', '💨', '💧', '💦', '🫧', '☔', '☂️', '🌊', '🌫', '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '⚡', '🔥', '💥', '💫', '✨', '☀️', '🌙', '⭐', '🌟', '💫', '✅', '❌', '⭕', '❗', '❓', '❕', '❔', '‼️', '⁉️', '〰️', '💱', '💲', '⚕️', '♻️', '⚜️', '🔱', '📛', '🔰', '⭕', '✅', '☑️', '✔️', '❌', '❎', '➕', '➖', '➗', '➰', '➿', '〽️', '✳️', '✴️', '❇️', '©️', '®️', '™️', '#️⃣', '*️⃣', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔠', '🔡', '🔢', '🔣', '🔤', '🅰️', '🆎', '🅱️', '🆑', '🆒', '🆓', 'ℹ️', '🆔', 'Ⓜ️', '🆕', '🆖', '🅾️', '🆗', '🅿️', '🆘', '🆙', '🆚', '🈁', '🈂️', '🈷️', '🈶', '🈯', '🉐', '🈹', '🈚', '🈲', '🉑', '🈸', '🈴', '🈳', '㊗️', '㊙️', '🈺', '🈵', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '🟤', '⚫', '⚪', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '🟫', '⬛', '⬜', '◼️', '◻️', '◾', '◽', '▪️', '▫️', '🔶', '🔷', '🔸', '🔹', '🔺', '🔻', '💠', '🔘', '🔳', '🔲', '🏁', '🚩', '🎌', '🏴', '🏳️', '🏳️‍🌈', '🏳️‍⚧️', '🏴‍☠️']
+    },
+    flags: {
+      label: '🏳️ Flags',
+      emojis: ['🏁', '🚩', '🎌', '🏴', '🏳️', '🏳️‍🌈', '🏳️‍⚧️', '🏴‍☠️', '🇦🇨', '🇦🇩', '🇦🇪', '🇦🇫', '🇦🇬', '🇦🇮', '🇦🇱', '🇦🇲', '🇦🇴', '🇦🇶', '🇦🇷', '🇦🇸', '🇦🇹', '🇦🇺', '🇦🇼', '🇦🇽', '🇦🇿', '🇧🇦', '🇧🇧', '🇧🇩', '🇧🇪', '🇧🇫', '🇧🇬', '🇧🇭', '🇧🇮', '🇧🇯', '🇧🇱', '🇧🇲', '🇧🇳', '🇧🇴', '🇧🇶', '🇧🇷', '🇧🇸', '🇧🇹', '🇧🇻', '🇧🇼', '🇧🇾', '🇧🇿', '🇨🇦', '🇨🇨', '🇨🇩', '🇨🇫', '🇨🇬', '🇨🇭', '🇨🇮', '🇨🇰', '🇨🇱', '🇨🇲', '🇨🇳', '🇨🇴', '🇨🇵', '🇨🇷', '🇨🇺', '🇨🇻', '🇨🇼', '🇨🇽', '🇨🇾', '🇨🇿', '🇩🇪', '🇩🇬', '🇩🇯', '🇩🇰', '🇩🇲', '🇩🇴', '🇩🇿', '🇪🇦', '🇪🇨', '🇪🇪', '🇪🇬', '🇪🇭', '🇪🇷', '🇪🇸', '🇪🇹', '🇪🇺', '🇫🇮', '🇫🇯', '🇫🇰', '🇫🇲', '🇫🇴', '🇫🇷', '🇬🇦', '🇬🇧', '🇬🇩', '🇬🇪', '🇬🇫', '🇬🇬', '🇬🇭', '🇬🇮', '🇬🇱', '🇬🇲', '🇬🇳', '🇬🇵', '🇬🇶', '🇬🇷', '🇬🇸', '🇬🇹', '🇬🇺', '🇬🇼', '🇬🇾', '🇭🇰', '🇭🇲', '🇭🇳', '🇭🇷', '🇭🇹', '🇭🇺', '🇮🇨', '🇮🇩', '🇮🇪', '🇮🇱', '🇮🇲', '🇮🇳', '🇮🇴', '🇮🇶', '🇮🇷', '🇮🇸', '🇮🇹', '🇯🇪', '🇯🇲', '🇯🇴', '🇯🇵', '🇰🇪', '🇰🇬', '🇰🇭', '🇰🇮', '🇰🇲', '🇰🇳', '🇰🇵', '🇰🇷', '🇰🇼', '🇰🇾', '🇰🇿', '🇱🇦', '🇱🇧', '🇱🇨', '🇱🇮', '🇱🇰', '🇱🇷', '🇱🇸', '🇱🇹', '🇱🇺', '🇱🇻', '🇱🇾', '🇲🇦', '🇲🇨', '🇲🇩', '🇲🇪', '🇲🇫', '🇲🇬', '🇲🇭', '🇲🇰', '🇲🇱', '🇲🇲', '🇲🇳', '🇲🇴', '🇲🇵', '🇲🇶', '🇲🇷', '🇲🇸', '🇲🇹', '🇲🇺', '🇲🇻', '🇲🇼', '🇲🇽', '🇲🇾', '🇲🇿', '🇳🇦', '🇳🇨', '🇳🇪', '🇳🇫', '🇳🇬', '🇳🇮', '🇳🇱', '🇳🇴', '🇳🇵', '🇳🇷', '🇳🇺', '🇳🇿', '🇴🇲', '🇵🇦', '🇵🇪', '🇵🇫', '🇵🇬', '🇵🇭', '🇵🇰', '🇵🇱', '🇵🇲', '🇵🇳', '🇵🇷', '🇵🇸', '🇵🇹', '🇵🇼', '🇵🇾', '🇶🇦', '🇷🇪', '🇷🇴', '🇷🇸', '🇷🇺', '🇷🇼', '🇸🇦', '🇸🇧', '🇸🇨', '🇸🇩', '🇸🇪', '🇸🇬', '🇸🇭', '🇸🇮', '🇸🇯', '🇸🇰', '🇸🇱', '🇸🇲', '🇸🇳', '🇸🇴', '🇸🇷', '🇸🇸', '🇸🇹', '🇸🇻', '🇸🇽', '🇸🇾', '🇸🇿', '🇹🇦', '🇹🇨', '🇹🇩', '🇹🇫', '🇹🇬', '🇹🇭', '🇹🇯', '🇹🇰', '🇹🇱', '🇹🇲', '🇹🇳', '🇹🇴', '🇹🇷', '🇹🇹', '🇹🇻', '🇹🇼', '🇹🇿', '🇺🇦', '🇺🇬', '🇺🇲', '🇺🇳', '🇺🇸', '🇺🇾', '🇺🇿', '🇻🇦', '🇻🇨', '🇻🇪', '🇻🇬', '🇻🇮', '🇻🇳', '🇻🇺', '🇼🇫', '🇼🇸', '🇽🇰', '🇾🇪', '🇾🇹', '🇿🇦', '🇿🇲', '🇿🇼', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🏴󠁧󠁢󠁳󠁣󠁴󠁿', '🏴󠁧󠁢󠁷󠁬󠁳󠁿']
+    }
+  };
+
+  const handleInsertEmoji = (emoji: string) => {
+    if (!selectedText) return;
+    
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = selectedText.text;
+      const newText = text.slice(0, start) + emoji + text.slice(end);
+      
+      onUpdateText(selectedText.id, { text: newText });
+      
+      // Set cursor position after emoji
+      setTimeout(() => {
+        textarea.focus();
+        const newPosition = start + emoji.length;
+        textarea.setSelectionRange(newPosition, newPosition);
+      }, 0);
+    } else {
+      // Fallback: append emoji
+      onUpdateText(selectedText.id, { text: selectedText.text + emoji });
+    }
+  };
 
   return (
     <div className="bg-gray-800 rounded-xl p-6 flex flex-col h-full">
@@ -152,7 +248,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({
         {selectedText && (
           <div className="border-t border-gray-700 pt-4">
             <div className="flex items-center justify-between mb-3">
-              <h5 className="text-gray-300 text-sm font-medium">Quick Style Presets</h5>
+              <h5 className="text-gray-300 text-sm font-medium">Style Presets</h5>
               <button
                 onClick={() => setShowPresets(!showPresets)}
                 className="text-xs text-pink-400 hover:text-pink-300"
@@ -185,18 +281,80 @@ export const TextEditor: React.FC<TextEditorProps> = ({
 
             {/* Edit Selected Text */}
             <div className="space-y-4">
-              <h5 className="text-gray-300 text-sm font-medium">Edit Text</h5>
-
               {/* Text Input */}
               <div>
-                <label className="block text-gray-300 text-sm mb-2">Text Content</label>
-                <textarea
-                  value={selectedText.text}
-                  onChange={(e) => onUpdateText(selectedText.id, { text: e.target.value })}
-                  className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-pink-500 focus:outline-none resize-none"
-                  rows={3}
-                  placeholder="Enter your text..."
-                />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-gray-300 text-sm">Text Content</label>
+                  <button
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className={`px-2 py-1 rounded-lg transition-all ${
+                      showEmojiPicker 
+                        ? 'bg-pink-500 text-white' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                    title="Add emoji"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="relative">
+                  <textarea
+                    ref={textareaRef}
+                    value={selectedText.text}
+                    onChange={(e) => onUpdateText(selectedText.id, { text: e.target.value })}
+                    className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:border-pink-500 focus:outline-none resize-none"
+                    rows={3}
+                    placeholder="Enter your text..."
+                  />
+                  
+                  {/* Emoji Picker Popup */}
+                  {showEmojiPicker && (
+                    <div 
+                      ref={emojiPickerRef} 
+                      className="absolute left-0 right-0 top-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-xl overflow-hidden flex flex-col"
+                      style={{ zIndex: 50, maxHeight: '300px' }}
+                    >
+                      {/* Emoji Category Tabs */}
+                      <div className="flex justify-between border-b border-gray-600 bg-gray-800 flex-shrink-0">
+                        {Object.entries(emojiCategories).map(([key, category]) => (
+                          <button
+                            key={key}
+                            onClick={() => setActiveEmojiCategory(key)}
+                            className={`flex-1 py-1.5 text-lg whitespace-nowrap transition-colors ${
+                              activeEmojiCategory === key
+                                ? 'bg-pink-500'
+                                : 'hover:bg-gray-600'
+                            }`}
+                            title={category.label}
+                          >
+                            {category.label.split(' ')[0]}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Emoji Grid */}
+                      <div className="p-2 overflow-y-auto custom-scrollbar flex-1" style={{ minHeight: 0 }}>
+                        <div className="grid grid-cols-8 gap-1">
+                          {emojiCategories[activeEmojiCategory].emojis.map((emoji, index) => (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                handleInsertEmoji(emoji);
+                                setShowEmojiPicker(false);
+                              }}
+                              className="text-xl hover:bg-gray-600 rounded p-1 transition-colors aspect-square flex items-center justify-center"
+                              title={emoji}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Font Family with Categories */}
@@ -666,6 +824,109 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                         className="w-full h-8 rounded cursor-pointer"
                       />
                       <div>
+                        <label className="block text-gray-400 text-xs mb-1">Opacity: {Math.round((selectedText.background.opacity ?? 0.5) * 100)}%</label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={selectedText.background.opacity ?? 0.5}
+                          onChange={(e) =>
+                            onUpdateText(selectedText.id, {
+                              background: { ...selectedText.background, opacity: parseFloat(e.target.value) },
+                            })
+                          }
+                          className="w-full accent-pink-500"
+                        />
+                      </div>
+                      
+                      {/* Background Gradient */}
+                      <div className="border-t border-gray-600 pt-2 mt-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-gray-400 text-xs">Gradient</label>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedText.background.gradient?.enabled ?? false}
+                              onChange={(e) =>
+                                onUpdateText(selectedText.id, {
+                                  background: { 
+                                    ...selectedText.background, 
+                                    gradient: { 
+                                      enabled: e.target.checked,
+                                      colors: selectedText.background.gradient?.colors ?? ['#FF006E', '#8B5CF6'],
+                                      angle: selectedText.background.gradient?.angle ?? 135,
+                                    }
+                                  },
+                                })
+                              }
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-500"></div>
+                          </label>
+                        </div>
+                        {selectedText.background.gradient?.enabled && (
+                          <div className="space-y-2">
+                            <div className="flex gap-2">
+                              <input
+                                type="color"
+                                value={selectedText.background.gradient.colors[0]}
+                                onChange={(e) =>
+                                  onUpdateText(selectedText.id, {
+                                    background: { 
+                                      ...selectedText.background, 
+                                      gradient: { 
+                                        ...selectedText.background.gradient!, 
+                                        colors: [e.target.value, selectedText.background.gradient!.colors[1]]
+                                      }
+                                    },
+                                  })
+                                }
+                                className="w-10 h-8 rounded cursor-pointer"
+                              />
+                              <input
+                                type="color"
+                                value={selectedText.background.gradient.colors[1]}
+                                onChange={(e) =>
+                                  onUpdateText(selectedText.id, {
+                                    background: { 
+                                      ...selectedText.background, 
+                                      gradient: { 
+                                        ...selectedText.background.gradient!, 
+                                        colors: [selectedText.background.gradient!.colors[0], e.target.value]
+                                      }
+                                    },
+                                  })
+                                }
+                                className="w-10 h-8 rounded cursor-pointer"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-400 text-xs mb-1">Angle: {selectedText.background.gradient.angle}°</label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="360"
+                                value={selectedText.background.gradient.angle}
+                                onChange={(e) =>
+                                  onUpdateText(selectedText.id, {
+                                    background: { 
+                                      ...selectedText.background, 
+                                      gradient: { 
+                                        ...selectedText.background.gradient!, 
+                                        angle: parseInt(e.target.value)
+                                      }
+                                    },
+                                  })
+                                }
+                                className="w-full accent-pink-500"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div>
                         <label className="block text-gray-400 text-xs mb-1">Padding: {selectedText.background.padding}px</label>
                         <input
                           type="range"
@@ -695,6 +956,170 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                           className="w-full accent-pink-500"
                         />
                       </div>
+                      
+                      {/* Background Stroke */}
+                      <div className="border-t border-gray-600 pt-2 mt-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-gray-400 text-xs">Stroke</label>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedText.background.stroke?.enabled ?? false}
+                              onChange={(e) =>
+                                onUpdateText(selectedText.id, {
+                                  background: { 
+                                    ...selectedText.background, 
+                                    stroke: { 
+                                      enabled: e.target.checked,
+                                      color: selectedText.background.stroke?.color ?? '#ffffff',
+                                      width: selectedText.background.stroke?.width ?? 2,
+                                    }
+                                  },
+                                })
+                              }
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-500"></div>
+                          </label>
+                        </div>
+                        {selectedText.background.stroke?.enabled && (
+                          <div className="space-y-2">
+                            <input
+                              type="color"
+                              value={selectedText.background.stroke.color}
+                              onChange={(e) =>
+                                onUpdateText(selectedText.id, {
+                                  background: { 
+                                    ...selectedText.background, 
+                                    stroke: { ...selectedText.background.stroke!, color: e.target.value }
+                                  },
+                                })
+                              }
+                              className="w-full h-6 rounded cursor-pointer"
+                            />
+                            <div>
+                              <label className="block text-gray-400 text-xs mb-1">Width: {selectedText.background.stroke.width}px</label>
+                              <input
+                                type="range"
+                                min="1"
+                                max="10"
+                                value={selectedText.background.stroke.width}
+                                onChange={(e) =>
+                                  onUpdateText(selectedText.id, {
+                                    background: { 
+                                      ...selectedText.background, 
+                                      stroke: { ...selectedText.background.stroke!, width: parseInt(e.target.value) }
+                                    },
+                                  })
+                                }
+                                className="w-full accent-pink-500"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Background Shadow */}
+                      <div className="border-t border-gray-600 pt-2 mt-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-gray-400 text-xs">Shadow</label>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedText.background.shadow?.enabled ?? false}
+                              onChange={(e) =>
+                                onUpdateText(selectedText.id, {
+                                  background: { 
+                                    ...selectedText.background, 
+                                    shadow: { 
+                                      enabled: e.target.checked,
+                                      color: selectedText.background.shadow?.color ?? '#000000',
+                                      blur: selectedText.background.shadow?.blur ?? 10,
+                                      offsetX: selectedText.background.shadow?.offsetX ?? 0,
+                                      offsetY: selectedText.background.shadow?.offsetY ?? 4,
+                                    }
+                                  },
+                                })
+                              }
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-500"></div>
+                          </label>
+                        </div>
+                        {selectedText.background.shadow?.enabled && (
+                          <div className="space-y-2">
+                            <input
+                              type="color"
+                              value={selectedText.background.shadow.color}
+                              onChange={(e) =>
+                                onUpdateText(selectedText.id, {
+                                  background: { 
+                                    ...selectedText.background, 
+                                    shadow: { ...selectedText.background.shadow!, color: e.target.value }
+                                  },
+                                })
+                              }
+                              className="w-full h-6 rounded cursor-pointer"
+                            />
+                            <div>
+                              <label className="block text-gray-400 text-xs mb-1">Blur: {selectedText.background.shadow.blur}px</label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="50"
+                                value={selectedText.background.shadow.blur}
+                                onChange={(e) =>
+                                  onUpdateText(selectedText.id, {
+                                    background: { 
+                                      ...selectedText.background, 
+                                      shadow: { ...selectedText.background.shadow!, blur: parseInt(e.target.value) }
+                                    },
+                                  })
+                                }
+                                className="w-full accent-pink-500"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-gray-400 text-xs mb-1">X: {selectedText.background.shadow.offsetX}px</label>
+                                <input
+                                  type="range"
+                                  min="-20"
+                                  max="20"
+                                  value={selectedText.background.shadow.offsetX}
+                                  onChange={(e) =>
+                                    onUpdateText(selectedText.id, {
+                                      background: { 
+                                        ...selectedText.background, 
+                                        shadow: { ...selectedText.background.shadow!, offsetX: parseInt(e.target.value) }
+                                      },
+                                    })
+                                  }
+                                  className="w-full accent-pink-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-gray-400 text-xs mb-1">Y: {selectedText.background.shadow.offsetY}px</label>
+                                <input
+                                  type="range"
+                                  min="-20"
+                                  max="20"
+                                  value={selectedText.background.shadow.offsetY}
+                                  onChange={(e) =>
+                                    onUpdateText(selectedText.id, {
+                                      background: { 
+                                        ...selectedText.background, 
+                                        shadow: { ...selectedText.background.shadow!, offsetY: parseInt(e.target.value) }
+                                      },
+                                    })
+                                  }
+                                  className="w-full accent-pink-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -720,46 +1145,69 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                 </div>
 
                 {selectedText.animation !== 'none' && (
-                  <div>
-                    {selectedText.animation === 'marqueeLeft' || selectedText.animation === 'marqueeRight' ? (
-                      <>
+                  <>
+                    <div>
+                      {selectedText.animation === 'marqueeLeft' || selectedText.animation === 'marqueeRight' ? (
+                        <>
+                          <label className="block text-gray-300 text-sm mb-2">
+                            Scroll Speed: {Math.round(Math.sqrt(120 / selectedText.animationDuration) * 10) / 10}
+                            <span className="text-gray-400 text-xs ml-2">
+                              (1 = slow, 10 = very fast)
+                            </span>
+                          </label>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            step="0.5"
+                            value={Math.sqrt(120 / selectedText.animationDuration)}
+                            onChange={(e) => {
+                              const speed = parseFloat(e.target.value);
+                              const duration = 120 / (speed * speed);
+                              onUpdateText(selectedText.id, { animationDuration: duration });
+                            }}
+                            className="w-full accent-pink-500"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <label className="block text-gray-300 text-sm mb-2">
+                            Duration: {selectedText.animationDuration}s
+                          </label>
+                          <input
+                            type="range"
+                            min="0.1"
+                            max="3"
+                            step="0.1"
+                            value={selectedText.animationDuration}
+                            onChange={(e) => onUpdateText(selectedText.id, { animationDuration: parseFloat(e.target.value) })}
+                            className="w-full accent-pink-500"
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Animation Distance for directional animations */}
+                    {(selectedText.animation === 'slideUp' || 
+                      selectedText.animation === 'slideDown' || 
+                      selectedText.animation === 'slideLeft' || 
+                      selectedText.animation === 'slideRight') && (
+                      <div>
                         <label className="block text-gray-300 text-sm mb-2">
-                          Scroll Speed: {Math.round((30 / selectedText.animationDuration) * 10) / 10}
-                          <span className="text-gray-400 text-xs ml-2">
-                            (1 = slow, 10 = fast)
-                          </span>
+                          Distance: {selectedText.animationDistance || 100}%
                         </label>
                         <input
                           type="range"
-                          min="1"
-                          max="10"
-                          step="0.5"
-                          value={30 / selectedText.animationDuration}
-                          onChange={(e) => {
-                            const speed = parseFloat(e.target.value);
-                            const duration = 30 / speed;
-                            onUpdateText(selectedText.id, { animationDuration: duration });
-                          }}
+                          min="20"
+                          max="200"
+                          step="10"
+                          value={selectedText.animationDistance || 100}
+                          onChange={(e) => onUpdateText(selectedText.id, { animationDistance: parseInt(e.target.value) })}
                           className="w-full accent-pink-500"
                         />
-                      </>
-                    ) : (
-                      <>
-                        <label className="block text-gray-300 text-sm mb-2">
-                          Duration: {selectedText.animationDuration}s
-                        </label>
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="3"
-                          step="0.1"
-                          value={selectedText.animationDuration}
-                          onChange={(e) => onUpdateText(selectedText.id, { animationDuration: parseFloat(e.target.value) })}
-                          className="w-full accent-pink-500"
-                        />
-                      </>
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             </div>
