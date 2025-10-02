@@ -30,6 +30,34 @@ function App() {
   useEffect(() => {
     // Load all Google Fonts on mount
     loadAllGoogleFonts();
+
+    // Check for shared state in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedData = urlParams.get('share');
+    
+    if (sharedData) {
+      try {
+        const decodedData = JSON.parse(decodeURIComponent(sharedData));
+        
+        // Restore video selection
+        if (decodedData.videoId) {
+          const video = SAMPLE_VIDEOS.find(v => v.id === decodedData.videoId);
+          if (video) {
+            setSelectedVideo(video);
+          }
+        }
+        
+        // Restore text elements
+        if (decodedData.textElements && Array.isArray(decodedData.textElements)) {
+          setTextElements(decodedData.textElements);
+        }
+        
+        // Clean up URL without reloading page
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (error) {
+        console.error('Error loading shared data:', error);
+      }
+    }
   }, []);
 
   // Commit current state to history (called immediately for discrete actions)
@@ -584,6 +612,36 @@ function App() {
     }
   };
 
+  const handleShare = async () => {
+    try {
+      // Create shareable data object
+      const shareData = {
+        videoId: selectedVideo.id,
+        textElements: textElements,
+      };
+      
+      // Encode data to URL parameter
+      const encodedData = encodeURIComponent(JSON.stringify(shareData));
+      const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encodedData}`;
+      
+      // Try to use native share API if available (mobile)
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Text Over Video',
+          text: 'Check out my text overlay design!',
+          url: shareUrl,
+        });
+      } else {
+        // Fallback: Copy to clipboard
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Share link copied to clipboard! 🎉\n\nYou can paste and share this link with anyone.');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      alert('Failed to share. Please try again.');
+    }
+  };
+
   const handleDownloadScreenshot = async () => {
     if (!videoRef || !videoContainerRef.current) return;
 
@@ -895,6 +953,16 @@ function App() {
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+
+          <button
+            onClick={handleShare}
+            className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
+            title="Share your design"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
             </svg>
           </button>
         </div>
