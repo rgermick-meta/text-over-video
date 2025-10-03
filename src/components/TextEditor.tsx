@@ -11,6 +11,74 @@ import {
   createPresetFromSettings 
 } from '../utils/presetManager';
 
+// Number Slider Component with direct input
+interface NumberSliderProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onChange: (value: number) => void;
+}
+
+const NumberSlider: React.FC<NumberSliderProps> = ({ label, value, min, max, step = 1, unit = '', onChange }) => {
+  const [inputValue, setInputValue] = useState(value.toString());
+
+  useEffect(() => {
+    setInputValue(value.toString());
+  }, [value]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleInputBlur = () => {
+    const numValue = parseFloat(inputValue);
+    if (!isNaN(numValue)) {
+      const clampedValue = Math.max(min, Math.min(max, numValue));
+      onChange(clampedValue);
+      setInputValue(clampedValue.toString());
+    } else {
+      setInputValue(value.toString());
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleInputBlur();
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-gray-300 text-sm">{label}</label>
+        <div className="flex items-center gap-1">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleKeyDown}
+            className="w-14 bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 focus:border-pink-500 focus:outline-none text-right"
+          />
+          {unit && <span className="text-gray-400 text-xs">{unit}</span>}
+        </div>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full accent-pink-500"
+      />
+    </div>
+  );
+};
+
 interface TextEditorProps {
   textElements: TextElement[];
   selectedTextIds: string[];
@@ -678,14 +746,13 @@ export const TextEditor: React.FC<TextEditorProps> = ({
               {/* Font Size & Text Formatting Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-gray-300 text-sm mb-2">Size: {selectedText.fontSize}px</label>
-                  <input
-                    type="range"
-                    min="12"
-                    max="120"
+                  <NumberSlider
+                    label="Size"
                     value={selectedText.fontSize}
-                    onChange={(e) => onUpdateText(selectedText.id, { fontSize: parseInt(e.target.value) })}
-                    className="w-full accent-pink-500"
+                    min={12}
+                    max={120}
+                    unit="px"
+                    onChange={(val) => onUpdateText(selectedText.id, { fontSize: Math.round(val) })}
                   />
                 </div>
                 <div>
@@ -769,26 +836,23 @@ export const TextEditor: React.FC<TextEditorProps> = ({
               {/* Letter Spacing & Line Height */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-gray-300 text-sm mb-2">Letter Space: {selectedText.letterSpacing}px</label>
-                  <input
-                    type="range"
-                    min="-5"
-                    max="20"
+                  <NumberSlider
+                    label="Letter Space"
                     value={selectedText.letterSpacing}
-                    onChange={(e) => onUpdateText(selectedText.id, { letterSpacing: parseInt(e.target.value) })}
-                    className="w-full accent-pink-500"
+                    min={-5}
+                    max={20}
+                    unit="px"
+                    onChange={(val) => onUpdateText(selectedText.id, { letterSpacing: Math.round(val) })}
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-300 text-sm mb-2">Line Height: {selectedText.lineHeight}</label>
-                  <input
-                    type="range"
-                    min="0.8"
-                    max="2.5"
-                    step="0.1"
+                  <NumberSlider
+                    label="Line Height"
                     value={selectedText.lineHeight}
-                    onChange={(e) => onUpdateText(selectedText.id, { lineHeight: parseFloat(e.target.value) })}
-                    className="w-full accent-pink-500"
+                    min={0.8}
+                    max={2.5}
+                    step={0.1}
+                    onChange={(val) => onUpdateText(selectedText.id, { lineHeight: val })}
                   />
                 </div>
               </div>
@@ -816,29 +880,26 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-gray-300 text-sm mb-2">Opacity: {Math.round(selectedText.opacity * 100)}%</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={selectedText.opacity}
-                    onChange={(e) => onUpdateText(selectedText.id, { opacity: parseFloat(e.target.value) })}
-                    className="w-full accent-pink-500"
+                  <NumberSlider
+                    label="Opacity"
+                    value={Math.round(selectedText.opacity * 100)}
+                    min={0}
+                    max={100}
+                    unit="%"
+                    onChange={(val) => onUpdateText(selectedText.id, { opacity: val / 100 })}
                   />
                 </div>
               </div>
 
               {/* Rotation */}
               <div>
-                <label className="block text-gray-300 text-sm mb-2">Rotation: {selectedText.rotation}°</label>
-                <input
-                  type="range"
-                  min="-180"
-                  max="180"
+                <NumberSlider
+                  label="Rotation"
                   value={selectedText.rotation}
-                  onChange={(e) => onUpdateText(selectedText.id, { rotation: parseInt(e.target.value) })}
-                  className="w-full accent-pink-500"
+                  min={-180}
+                  max={180}
+                  unit="°"
+                  onChange={(val) => onUpdateText(selectedText.id, { rotation: Math.round(val) })}
                 />
               </div>
 
@@ -894,18 +955,17 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                         />
                       </div>
                       <div>
-                        <label className="block text-gray-400 text-xs mb-1">Angle: {selectedText.gradient.angle}°</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="360"
+                        <NumberSlider
+                          label="Angle"
                           value={selectedText.gradient.angle}
-                          onChange={(e) =>
+                          min={0}
+                          max={360}
+                          unit="°"
+                          onChange={(val) =>
                             onUpdateText(selectedText.id, {
-                              gradient: { ...selectedText.gradient, angle: parseInt(e.target.value) },
+                              gradient: { ...selectedText.gradient, angle: Math.round(val) },
                             })
                           }
-                          className="w-full accent-pink-500"
                         />
                       </div>
                     </div>
@@ -948,49 +1008,44 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                         className="w-full h-8 rounded cursor-pointer"
                       />
                       <div>
-                        <label className="block text-gray-400 text-xs mb-1">Blur: {selectedText.shadow.blur}px</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="50"
+                        <NumberSlider
+                          label="Blur"
                           value={selectedText.shadow.blur}
-                          onChange={(e) =>
+                          min={0}
+                          max={50}
+                          unit="px"
+                          onChange={(val) =>
                             onUpdateText(selectedText.id, {
-                              shadow: { ...selectedText.shadow, blur: parseInt(e.target.value) },
+                              shadow: { ...selectedText.shadow, blur: Math.round(val) },
                             })
                           }
-                          className="w-full accent-pink-500"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-gray-400 text-xs mb-1">X: {selectedText.shadow.offsetX}</label>
-                          <input
-                            type="range"
-                            min="-20"
-                            max="20"
+                          <NumberSlider
+                            label="X"
                             value={selectedText.shadow.offsetX}
-                            onChange={(e) =>
+                            min={-20}
+                            max={20}
+                            onChange={(val) =>
                               onUpdateText(selectedText.id, {
-                                shadow: { ...selectedText.shadow, offsetX: parseInt(e.target.value) },
+                                shadow: { ...selectedText.shadow, offsetX: Math.round(val) },
                               })
                             }
-                            className="w-full accent-pink-500"
                           />
                         </div>
                         <div>
-                          <label className="block text-gray-400 text-xs mb-1">Y: {selectedText.shadow.offsetY}</label>
-                          <input
-                            type="range"
-                            min="-20"
-                            max="20"
+                          <NumberSlider
+                            label="Y"
                             value={selectedText.shadow.offsetY}
-                            onChange={(e) =>
+                            min={-20}
+                            max={20}
+                            onChange={(val) =>
                               onUpdateText(selectedText.id, {
-                                shadow: { ...selectedText.shadow, offsetY: parseInt(e.target.value) },
+                                shadow: { ...selectedText.shadow, offsetY: Math.round(val) },
                               })
                             }
-                            className="w-full accent-pink-500"
                           />
                         </div>
                       </div>
@@ -1034,18 +1089,17 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                         className="w-full h-8 rounded cursor-pointer"
                       />
                       <div>
-                        <label className="block text-gray-400 text-xs mb-1">Width: {selectedText.stroke.width}px</label>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
+                        <NumberSlider
+                          label="Width"
                           value={selectedText.stroke.width}
-                          onChange={(e) =>
+                          min={1}
+                          max={10}
+                          unit="px"
+                          onChange={(val) =>
                             onUpdateText(selectedText.id, {
-                              stroke: { ...selectedText.stroke, width: parseInt(e.target.value) },
+                              stroke: { ...selectedText.stroke, width: Math.round(val) },
                             })
                           }
-                          className="w-full accent-pink-500"
                         />
                       </div>
                     </div>
@@ -1088,19 +1142,17 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                         className="w-full h-8 rounded cursor-pointer"
                       />
                       <div>
-                        <label className="block text-gray-400 text-xs mb-1">Opacity: {Math.round((selectedText.background.opacity ?? 0.5) * 100)}%</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.01"
-                          value={selectedText.background.opacity ?? 0.5}
-                          onChange={(e) =>
+                        <NumberSlider
+                          label="Opacity"
+                          value={Math.round((selectedText.background.opacity ?? 0.5) * 100)}
+                          min={0}
+                          max={100}
+                          unit="%"
+                          onChange={(val) =>
                             onUpdateText(selectedText.id, {
-                              background: { ...selectedText.background, opacity: parseFloat(e.target.value) },
+                              background: { ...selectedText.background, opacity: val / 100 },
                             })
                           }
-                          className="w-full accent-pink-500"
                         />
                       </div>
                       
@@ -1166,24 +1218,23 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                               />
                             </div>
                             <div>
-                              <label className="block text-gray-400 text-xs mb-1">Angle: {selectedText.background.gradient.angle}°</label>
-                              <input
-                                type="range"
-                                min="0"
-                                max="360"
+                              <NumberSlider
+                                label="Angle"
                                 value={selectedText.background.gradient.angle}
-                                onChange={(e) =>
+                                min={0}
+                                max={360}
+                                unit="°"
+                                onChange={(val) =>
                                   onUpdateText(selectedText.id, {
                                     background: { 
                                       ...selectedText.background, 
                                       gradient: { 
                                         ...selectedText.background.gradient!, 
-                                        angle: parseInt(e.target.value)
+                                        angle: Math.round(val)
                                       }
                                     },
                                   })
                                 }
-                                className="w-full accent-pink-500"
                               />
                             </div>
                           </div>
@@ -1191,33 +1242,31 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                       </div>
                       
                       <div>
-                        <label className="block text-gray-400 text-xs mb-1">Padding: {selectedText.background.padding}px</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="40"
+                        <NumberSlider
+                          label="Padding"
                           value={selectedText.background.padding}
-                          onChange={(e) =>
+                          min={0}
+                          max={40}
+                          unit="px"
+                          onChange={(val) =>
                             onUpdateText(selectedText.id, {
-                              background: { ...selectedText.background, padding: parseInt(e.target.value) },
+                              background: { ...selectedText.background, padding: Math.round(val) },
                             })
                           }
-                          className="w-full accent-pink-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-gray-400 text-xs mb-1">Radius: {selectedText.background.borderRadius}px</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="50"
+                        <NumberSlider
+                          label="Radius"
                           value={selectedText.background.borderRadius}
-                          onChange={(e) =>
+                          min={0}
+                          max={50}
+                          unit="px"
+                          onChange={(val) =>
                             onUpdateText(selectedText.id, {
-                              background: { ...selectedText.background, borderRadius: parseInt(e.target.value) },
+                              background: { ...selectedText.background, borderRadius: Math.round(val) },
                             })
                           }
-                          className="w-full accent-pink-500"
                         />
                       </div>
                       
@@ -1262,21 +1311,20 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                               className="w-full h-6 rounded cursor-pointer"
                             />
                             <div>
-                              <label className="block text-gray-400 text-xs mb-1">Width: {selectedText.background.stroke.width}px</label>
-                              <input
-                                type="range"
-                                min="1"
-                                max="10"
+                              <NumberSlider
+                                label="Width"
                                 value={selectedText.background.stroke.width}
-                                onChange={(e) =>
+                                min={1}
+                                max={10}
+                                unit="px"
+                                onChange={(val) =>
                                   onUpdateText(selectedText.id, {
                                     background: { 
                                       ...selectedText.background, 
-                                      stroke: { ...selectedText.background.stroke!, width: parseInt(e.target.value) }
+                                      stroke: { ...selectedText.background.stroke!, width: Math.round(val) }
                                     },
                                   })
                                 }
-                                className="w-full accent-pink-500"
                               />
                             </div>
                           </div>
@@ -1326,58 +1374,53 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                               className="w-full h-6 rounded cursor-pointer"
                             />
                             <div>
-                              <label className="block text-gray-400 text-xs mb-1">Blur: {selectedText.background.shadow.blur}px</label>
-                              <input
-                                type="range"
-                                min="0"
-                                max="50"
+                              <NumberSlider
+                                label="Blur"
                                 value={selectedText.background.shadow.blur}
-                                onChange={(e) =>
+                                min={0}
+                                max={50}
+                                unit="px"
+                                onChange={(val) =>
                                   onUpdateText(selectedText.id, {
                                     background: { 
                                       ...selectedText.background, 
-                                      shadow: { ...selectedText.background.shadow!, blur: parseInt(e.target.value) }
+                                      shadow: { ...selectedText.background.shadow!, blur: Math.round(val) }
                                     },
                                   })
                                 }
-                                className="w-full accent-pink-500"
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label className="block text-gray-400 text-xs mb-1">X: {selectedText.background.shadow.offsetX}px</label>
-                                <input
-                                  type="range"
-                                  min="-20"
-                                  max="20"
+                                <NumberSlider
+                                  label="X"
                                   value={selectedText.background.shadow.offsetX}
-                                  onChange={(e) =>
+                                  min={-20}
+                                  max={20}
+                                  onChange={(val) =>
                                     onUpdateText(selectedText.id, {
                                       background: { 
                                         ...selectedText.background, 
-                                        shadow: { ...selectedText.background.shadow!, offsetX: parseInt(e.target.value) }
+                                        shadow: { ...selectedText.background.shadow!, offsetX: Math.round(val) }
                                       },
                                     })
                                   }
-                                  className="w-full accent-pink-500"
                                 />
                               </div>
                               <div>
-                                <label className="block text-gray-400 text-xs mb-1">Y: {selectedText.background.shadow.offsetY}px</label>
-                                <input
-                                  type="range"
-                                  min="-20"
-                                  max="20"
+                                <NumberSlider
+                                  label="Y"
                                   value={selectedText.background.shadow.offsetY}
-                                  onChange={(e) =>
+                                  min={-20}
+                                  max={20}
+                                  onChange={(val) =>
                                     onUpdateText(selectedText.id, {
                                       background: { 
                                         ...selectedText.background, 
-                                        shadow: { ...selectedText.background.shadow!, offsetY: parseInt(e.target.value) }
+                                        shadow: { ...selectedText.background.shadow!, offsetY: Math.round(val) }
                                       },
                                     })
                                   }
-                                  className="w-full accent-pink-500"
                                 />
                               </div>
                             </div>
@@ -1413,41 +1456,29 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                     <div>
                       {selectedText.animation === 'marqueeLeft' || selectedText.animation === 'marqueeRight' ? (
                         <>
-                          <label className="block text-gray-300 text-sm mb-2">
-                            Scroll Speed: {Math.round(Math.sqrt(120 / selectedText.animationDuration) * 10) / 10}
-                            <span className="text-gray-400 text-xs ml-2">
-                              (1 = slow, 10 = very fast)
-                            </span>
-                          </label>
-                          <input
-                            type="range"
-                            min="1"
-                            max="10"
-                            step="0.5"
-                            value={Math.sqrt(120 / selectedText.animationDuration)}
-                            onChange={(e) => {
-                              const speed = parseFloat(e.target.value);
+                          <div className="text-gray-400 text-xs mb-1">(1 = slow, 10 = very fast)</div>
+                          <NumberSlider
+                            label="Scroll Speed"
+                            value={Math.round(Math.sqrt(120 / selectedText.animationDuration) * 10) / 10}
+                            min={1}
+                            max={10}
+                            step={0.5}
+                            onChange={(speed) => {
                               const duration = 120 / (speed * speed);
                               onUpdateText(selectedText.id, { animationDuration: duration });
                             }}
-                            className="w-full accent-pink-500"
                           />
                         </>
                       ) : (
-                        <>
-                          <label className="block text-gray-300 text-sm mb-2">
-                            Duration: {selectedText.animationDuration}s
-                          </label>
-                          <input
-                            type="range"
-                            min="0.1"
-                            max="3"
-                            step="0.1"
-                            value={selectedText.animationDuration}
-                            onChange={(e) => onUpdateText(selectedText.id, { animationDuration: parseFloat(e.target.value) })}
-                            className="w-full accent-pink-500"
-                          />
-                        </>
+                        <NumberSlider
+                          label="Duration"
+                          value={selectedText.animationDuration}
+                          min={0.1}
+                          max={3}
+                          step={0.1}
+                          unit="s"
+                          onChange={(val) => onUpdateText(selectedText.id, { animationDuration: val })}
+                        />
                       )}
                     </div>
 
@@ -1457,17 +1488,14 @@ export const TextEditor: React.FC<TextEditorProps> = ({
                       selectedText.animation === 'slideLeft' || 
                       selectedText.animation === 'slideRight') && (
                       <div>
-                        <label className="block text-gray-300 text-sm mb-2">
-                          Distance: {selectedText.animationDistance || 100}%
-                        </label>
-                        <input
-                          type="range"
-                          min="20"
-                          max="200"
-                          step="10"
+                        <NumberSlider
+                          label="Distance"
                           value={selectedText.animationDistance || 100}
-                          onChange={(e) => onUpdateText(selectedText.id, { animationDistance: parseInt(e.target.value) })}
-                          className="w-full accent-pink-500"
+                          min={20}
+                          max={200}
+                          step={10}
+                          unit="%"
+                          onChange={(val) => onUpdateText(selectedText.id, { animationDistance: Math.round(val) })}
                         />
                       </div>
                     )}
