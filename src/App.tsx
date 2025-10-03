@@ -27,7 +27,7 @@ function App() {
   const [historyIndex, setHistoryIndex] = useState(0);
   const [isUndoRedoAction, setIsUndoRedoAction] = useState(false);
   const [pendingHistoryUpdate, setPendingHistoryUpdate] = useState(false);
-  const historyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const historyTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Load all Google Fonts on mount
