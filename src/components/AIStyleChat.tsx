@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { TextElement } from '../types';
-import { interpretStyleRequest, refineStyleWithFeedback, analyzeVideoFrame } from '../utils/llmStyleService';
+import { interpretStyleRequest, analyzeVideoFrame } from '../utils/llmStyleService';
 import { loadGoogleFont } from '../utils/googleFonts';
 
 interface Message {
@@ -41,7 +41,6 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
   ]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [lastResult, setLastResult] = useState<any>(null);
   const [videoAnalysis, setVideoAnalysis] = useState<string | null>(null);
   const [isAnalyzingVideo, setIsAnalyzingVideo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -317,8 +316,6 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
         videoAnalysis: videoAnalysis || undefined
       });
 
-      setLastResult(result);
-
       // If confidence is low, ask for clarification
       if (result.confidence < 50 && result.clarificationNeeded) {
         addMessage({
@@ -390,95 +387,6 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
     }
   };
 
-  const handleRefinement = async (feedback: string) => {
-    if (!lastResult || !selectedText) return;
-
-    setIsProcessing(true);
-    try {
-      const lastUserMessage = messages.filter(m => m.type === 'user').slice(-1)[0];
-      const refined = await refineStyleWithFeedback(
-        lastUserMessage.content,
-        selectedText,
-        feedback,
-        lastResult
-      );
-      
-      setLastResult(refined);
-      
-      addMessage({
-        type: 'assistant',
-        content: `✨ ${refined.explanation}`,
-        confidence: refined.confidence,
-        updates: refined.updates
-      });
-
-      // Load font if it's being changed
-      if (refined.updates.fontFamily) {
-        loadGoogleFont(refined.updates.fontFamily);
-      }
-
-      onUpdateText(selectedText.id, refined.updates);
-    } catch (error) {
-      addMessage({
-        type: 'system',
-        content: '❌ Failed to refine. Please try a new request.'
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Check if the last update contains numerical properties that can be refined
-  const hasNumericalUpdates = (updates: any): boolean => {
-    if (!updates) return false;
-    
-    const numericalProps = [
-      'fontSize', 
-      'letterSpacing', 
-      'lineHeight', 
-      'opacity', 
-      'rotation', 
-      'width',
-      'animationDuration'
-    ];
-    
-    // Check direct numerical properties
-    if (numericalProps.some(prop => updates[prop] !== undefined)) {
-      return true;
-    }
-    
-    // Check nested numerical properties
-    if (updates.shadow && (
-      updates.shadow.offsetX !== undefined || 
-      updates.shadow.offsetY !== undefined || 
-      updates.shadow.blur !== undefined
-    )) {
-      return true;
-    }
-    
-    if (updates.stroke?.width !== undefined) {
-      return true;
-    }
-    
-    if (updates.background && (
-      updates.background.borderRadius !== undefined ||
-      updates.background.padding !== undefined ||
-      updates.background.opacity !== undefined ||
-      updates.background.stroke?.width !== undefined
-    )) {
-      return true;
-    }
-    
-    if (updates.extrusion && (
-      updates.extrusion.depth !== undefined ||
-      updates.extrusion.angle !== undefined
-    )) {
-      return true;
-    }
-    
-    return false;
-  };
-
   return (
     <div className="bg-gray-800 rounded-xl flex flex-col h-full">
       {/* Header */}
@@ -535,26 +443,6 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
         
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Quick Actions (shown after AI response with numerical updates) */}
-      {lastResult && messages.slice(-1)[0]?.type === 'assistant' && !isProcessing && hasNumericalUpdates(lastResult.updates) && (
-        <div className="px-6 pb-3">
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleRefinement('too_much')}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs py-2 rounded-lg transition-colors"
-            >
-              Too Much
-            </button>
-            <button
-              onClick={() => handleRefinement('too_little')}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs py-2 rounded-lg transition-colors"
-            >
-              Too Little
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Quick Suggestions */}
       {!isProcessing && selectedText && (
