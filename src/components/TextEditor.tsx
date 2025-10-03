@@ -24,6 +24,8 @@ interface NumberSliderProps {
 
 const NumberSlider: React.FC<NumberSliderProps> = ({ label, value, min, max, step = 1, unit = '', onChange }) => {
   const [inputValue, setInputValue] = useState(value.toString());
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
     setInputValue(value.toString());
@@ -34,6 +36,7 @@ const NumberSlider: React.FC<NumberSliderProps> = ({ label, value, min, max, ste
   };
 
   const handleInputBlur = () => {
+    setIsFocused(false);
     const numValue = parseFloat(inputValue);
     if (!isNaN(numValue)) {
       const clampedValue = Math.max(min, Math.min(max, numValue));
@@ -44,14 +47,33 @@ const NumberSlider: React.FC<NumberSliderProps> = ({ label, value, min, max, ste
     }
   };
 
+  const handleInputFocus = () => {
+    setIsFocused(true);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleInputBlur();
+      return;
+    }
+
+    // Arrow key controls: up/down = ±1, shift+up/down = ±10
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const increment = e.shiftKey ? 10 : 1;
+      const delta = e.key === 'ArrowUp' ? increment : -increment;
+      const newValue = Math.max(min, Math.min(max, value + delta));
+      onChange(newValue);
     }
   };
 
+  const isActive = isHovered || isFocused;
+
   return (
-    <div>
+    <div 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div className="flex items-center justify-between mb-2">
         <label className="text-gray-300 text-sm">{label}</label>
         <div className="flex items-center gap-1">
@@ -59,11 +81,17 @@ const NumberSlider: React.FC<NumberSliderProps> = ({ label, value, min, max, ste
             type="text"
             value={inputValue}
             onChange={handleInputChange}
+            onFocus={handleInputFocus}
             onBlur={handleInputBlur}
             onKeyDown={handleKeyDown}
-            className="w-14 bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 focus:border-pink-500 focus:outline-none text-right"
+            className={`w-14 text-xs px-2 py-1 rounded text-right transition-all ${
+              isActive
+                ? 'bg-gray-700 text-white border border-gray-600 focus:border-pink-500 focus:outline-none'
+                : 'bg-transparent text-gray-400 border border-transparent cursor-default font-mono'
+            }`}
+            readOnly={!isActive}
           />
-          {unit && <span className="text-gray-400 text-xs">{unit}</span>}
+          {unit && <span className="text-gray-400 text-xs w-4">{unit}</span>}
         </div>
       </div>
       <input
