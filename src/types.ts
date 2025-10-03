@@ -50,6 +50,12 @@ export interface TextElement {
     color: string;
     width: number;
   };
+  extrusion: {
+    enabled: boolean;
+    depth: number;
+    color: string;
+    angle: number; // 0-360 degrees, direction of extrusion
+  };
   background: {
     enabled: boolean;
     color: string;

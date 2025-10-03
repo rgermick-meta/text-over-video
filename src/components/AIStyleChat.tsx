@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { TextElement } from '../types';
-import { interpretStyleRequest, refineStyleWithFeedback, testApiKey, analyzeVideoFrame } from '../utils/llmStyleService';
+import { interpretStyleRequest, refineStyleWithFeedback, analyzeVideoFrame } from '../utils/llmStyleService';
 import { loadGoogleFont } from '../utils/googleFonts';
 
 interface Message {
@@ -42,12 +42,11 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
-  const [isTestingApi, setIsTestingApi] = useState(false);
-  const [apiTestResult, setApiTestResult] = useState<'success' | 'error' | null>(null);
   const [videoAnalysis, setVideoAnalysis] = useState<string | null>(null);
   const [isAnalyzingVideo, setIsAnalyzingVideo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasAnalyzedRef = useRef<string | null>(null); // Track which video was last analyzed
 
   const selectedText = selectedTextIds.length === 1 
     ? textElements.find(t => t.id === selectedTextIds[0]) 
@@ -61,12 +60,23 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  // Analyze video when it becomes available
+  // Reset video analysis when video changes
+  useEffect(() => {
+    if (videoTitle && hasAnalyzedRef.current !== videoTitle) {
+      console.log('🎥 Video changed to:', videoTitle);
+      setVideoAnalysis(null);
+      setIsAnalyzingVideo(false);
+      hasAnalyzedRef.current = null;
+    }
+  }, [videoTitle]);
+
+  // Analyze video when it becomes available (runs once per video)
   useEffect(() => {
     const analyzeVideo = async () => {
-      if (videoElement && !videoAnalysis && !isAnalyzingVideo) {
+      // Only analyze if we have a video element, haven't analyzed this video yet, and aren't currently analyzing
+      if (videoElement && videoTitle && hasAnalyzedRef.current !== videoTitle && !isAnalyzingVideo) {
         setIsAnalyzingVideo(true);
-        console.log('🎬 Video element received, preparing for analysis...');
+        console.log('🎬 Starting analysis for:', videoTitle);
         console.log('Video element:', videoElement);
         console.log('Current readyState:', videoElement.readyState);
         console.log('Current dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
@@ -74,20 +84,22 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
         try {
           const analysis = await analyzeVideoFrame(videoElement);
           setVideoAnalysis(analysis);
-          console.log('✅ Video analysis stored in state');
+          hasAnalyzedRef.current = videoTitle; // Mark this video as analyzed
+          console.log('✅ Video analysis complete for:', videoTitle);
           console.log('📊 Full analysis:', analysis);
           
-          // Show success message
+          // Show success message inline in chat
           addMessage({
             type: 'system',
-            content: '✅ Video analyzed! I can now help with colors and positioning based on what\'s in the video.'
+            content: `🎬 Video analyzed! I can now help with colors and positioning based on what's in "${videoTitle}".`
           });
         } catch (error) {
           console.error('❌ Failed to analyze video:', error);
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           setVideoAnalysis(`Error: ${errorMessage}`);
+          hasAnalyzedRef.current = `error-${videoTitle}`; // Mark as attempted to prevent retries
           
-          // Show error message
+          // Show error message inline in chat
           addMessage({
             type: 'system',
             content: `⚠️ Could not analyze video: ${errorMessage}`
@@ -101,7 +113,7 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
     // Add a small delay to allow video to start loading
     const timeoutId = setTimeout(analyzeVideo, 500);
     return () => clearTimeout(timeoutId);
-  }, [videoElement]);
+  }, [videoElement, videoTitle]); // Only depend on videoElement and videoTitle
 
   // Dynamic suggestions based on current text state and conversation history
   const getSmartSuggestions = (): string[] => {
@@ -319,8 +331,11 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
       }
 
       // Handle duplicate action
+      console.log('🔍 Checking action:', result.action);
       if (result.action === 'duplicate') {
+        console.log('✅ Duplicate action detected!');
         if (onDuplicateText) {
+          console.log('📋 Calling onDuplicateText...');
           onDuplicateText(selectedText);
           addMessage({
             type: 'assistant',
@@ -329,6 +344,7 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
             action: result.action
           });
         } else {
+          console.log('❌ onDuplicateText not provided');
           addMessage({
             type: 'system',
             content: '⚠️ Duplicate feature is not available in this context.'
@@ -412,105 +428,63 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
     }
   };
 
-  const handleTestApiKey = async () => {
-    setIsTestingApi(true);
-    setApiTestResult(null);
+  // Check if the last update contains numerical properties that can be refined
+  const hasNumericalUpdates = (updates: any): boolean => {
+    if (!updates) return false;
     
-    try {
-      const result = await testApiKey();
-      setApiTestResult(result.success ? 'success' : 'error');
-      
-      addMessage({
-        type: 'system',
-        content: `${result.message}${result.error ? `\n\n${result.error}` : ''}`
-      });
-      
-      // Clear the result indicator after 3 seconds
-      setTimeout(() => setApiTestResult(null), 3000);
-    } catch (error) {
-      setApiTestResult('error');
-      addMessage({
-        type: 'system',
-        content: '❌ Failed to test API key. Check console for details.'
-      });
-      setTimeout(() => setApiTestResult(null), 3000);
-    } finally {
-      setIsTestingApi(false);
+    const numericalProps = [
+      'fontSize', 
+      'letterSpacing', 
+      'lineHeight', 
+      'opacity', 
+      'rotation', 
+      'width',
+      'animationDuration'
+    ];
+    
+    // Check direct numerical properties
+    if (numericalProps.some(prop => updates[prop] !== undefined)) {
+      return true;
     }
+    
+    // Check nested numerical properties
+    if (updates.shadow && (
+      updates.shadow.offsetX !== undefined || 
+      updates.shadow.offsetY !== undefined || 
+      updates.shadow.blur !== undefined
+    )) {
+      return true;
+    }
+    
+    if (updates.stroke?.width !== undefined) {
+      return true;
+    }
+    
+    if (updates.background && (
+      updates.background.borderRadius !== undefined ||
+      updates.background.padding !== undefined ||
+      updates.background.opacity !== undefined ||
+      updates.background.stroke?.width !== undefined
+    )) {
+      return true;
+    }
+    
+    if (updates.extrusion && (
+      updates.extrusion.depth !== undefined ||
+      updates.extrusion.angle !== undefined
+    )) {
+      return true;
+    }
+    
+    return false;
   };
 
   return (
     <div className="bg-gray-800 rounded-xl flex flex-col h-full">
       {/* Header */}
       <div className="p-6 border-b border-gray-700">
-        <div className="flex items-start justify-between mb-2">
-          <h4 className="text-white font-bold text-xl">AI Style Assistant</h4>
-          <button
-            onClick={handleTestApiKey}
-            disabled={isTestingApi}
-            className={`text-xs px-2 py-1 rounded transition-colors ${
-              apiTestResult === 'success' 
-                ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
-                : apiTestResult === 'error'
-                ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                : 'text-gray-500 hover:text-gray-400 underline'
-            }`}
-            title="Test if Gemini API is responding"
-          >
-            {isTestingApi ? 'Testing...' : apiTestResult === 'success' ? '✓ Working' : apiTestResult === 'error' ? '✗ Failed' : 'Test API'}
-          </button>
-        </div>
+        <h4 className="text-white font-bold text-xl mb-2">Style Assistant</h4>
         <p className="text-gray-400 text-sm">Describe the style you want in plain English</p>
-        
-        {/* Video Analysis Debug Info */}
-        {isAnalyzingVideo && (
-          <div className="mt-3 p-2 bg-blue-900/30 border border-blue-700 rounded text-xs text-blue-300">
-            🎥 Analyzing video content...
-          </div>
-        )}
-        
-        {videoAnalysis && !videoAnalysis.startsWith('Error:') && (
-          <details className="mt-3 text-xs">
-            <summary className="cursor-pointer text-gray-400 hover:text-gray-300 mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <span>🔍 Video Analysis Debug</span>
-                <span className="text-green-400">(Active)</span>
-              </span>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (videoElement) {
-                    setVideoAnalysis(null);
-                    setIsAnalyzingVideo(false);
-                  }
-                }}
-                className="text-xs text-purple-400 hover:text-purple-300 underline"
-              >
-                Re-analyze
-              </button>
-            </summary>
-            <div className="mt-2 p-3 bg-gray-900/80 border border-gray-600 rounded text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap text-xs font-mono">
-              {videoAnalysis}
-            </div>
-          </details>
-        )}
-        
-        {videoAnalysis?.startsWith('Error:') && (
-          <div className="mt-3 p-2 bg-red-900/30 border border-red-700 rounded text-xs text-red-300 flex items-center justify-between">
-            <span>⚠️ Video analysis failed</span>
-            <button
-              onClick={() => {
-                if (videoElement) {
-                  setVideoAnalysis(null);
-                  setIsAnalyzingVideo(false);
-                }
-              }}
-              className="text-xs text-purple-400 hover:text-purple-300 underline"
-            >
-              Retry
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Messages */}
@@ -562,8 +536,8 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Actions (shown after AI response) */}
-      {lastResult && messages.slice(-1)[0]?.type === 'assistant' && !isProcessing && (
+      {/* Quick Actions (shown after AI response with numerical updates) */}
+      {lastResult && messages.slice(-1)[0]?.type === 'assistant' && !isProcessing && hasNumericalUpdates(lastResult.updates) && (
         <div className="px-6 pb-3">
           <div className="flex gap-2">
             <button
@@ -585,17 +559,6 @@ export const AIStyleChat: React.FC<AIStyleChatProps> = ({
       {/* Quick Suggestions */}
       {!isProcessing && selectedText && (
         <div className="px-6 pb-3">
-          <div className="flex items-center gap-2 mb-2">
-            <p className="text-xs text-gray-500">
-              {messages.length <= 2 ? 'Try these:' : 'Next steps:'}
-            </p>
-            {videoAnalysis && (
-              <span className="text-xs text-green-400 flex items-center gap-1">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                Video context active
-              </span>
-            )}
-          </div>
           <div className="flex flex-wrap gap-1.5">
             {quickSuggestions.map((suggestion, index) => (
               <button

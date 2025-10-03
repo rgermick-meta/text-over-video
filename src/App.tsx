@@ -321,6 +321,12 @@ function App() {
         color: '#000000',
         width: 2,
       },
+      extrusion: {
+        enabled: false,
+        depth: 10,
+        color: '#000000',
+        angle: 135,
+      },
       background: {
         enabled: false,
         color: '#000000',

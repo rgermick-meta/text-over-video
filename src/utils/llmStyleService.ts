@@ -151,6 +151,20 @@ function validateStyleInterpretation(
       };
     }
 
+    // Extrusion validation
+    if (updates.extrusion && typeof updates.extrusion === 'object') {
+      validated.updates.extrusion = {
+        ...currentElement.extrusion,
+        ...updates.extrusion,
+        depth: typeof updates.extrusion.depth === 'number' 
+          ? Math.min(50, Math.max(1, updates.extrusion.depth))
+          : currentElement.extrusion.depth,
+        angle: typeof updates.extrusion.angle === 'number'
+          ? updates.extrusion.angle % 360
+          : currentElement.extrusion.angle
+      };
+    }
+
     if (updates.gradient && typeof updates.gradient === 'object') {
       validated.updates.gradient = {
         ...currentElement.gradient,
@@ -382,7 +396,12 @@ TEXT CONTENT CHANGES:
 - User can request to change the actual text content
 
 SPECIAL ACTIONS:
-- "duplicate" or "copy" → Set action: "duplicate" in response (this will create a copy of the element)
+- If user says "duplicate", "dupe", "copy", "clone", "make a copy" → Set action: "duplicate" in response (this will create a copy of the element)
+- IMPORTANT: For duplicate requests, ALWAYS include "action": "duplicate" in the JSON response
+- Example responses for duplicate:
+  * "dupe this" → { "action": "duplicate", "explanation": "Creating a duplicate of the current text", "confidence": 100 }
+  * "copy it" → { "action": "duplicate", "explanation": "Duplicating the text element", "confidence": 100 }
+- NOTE: Do NOT include any updates when action is duplicate, only the action field
 
 USING VIDEO CONTENT ANALYSIS:
 - Use the VIDEO CONTENT ANALYSIS to extract colors, understand subjects, and position text
@@ -423,9 +442,10 @@ BASIC TEXT PROPERTIES:
 - "remove underline" or "no underline" → { underline: false }
 
 TEXT ALIGNMENT:
-- "align left" → { textAlign: "left" }
-- "align center" or "center align" → { textAlign: "center" }
-- "align right" → { textAlign: "right" }
+- "align left" or "left align" → { textAlign: "left" }
+- "align center" or "center align" or "center it" or "center the text" → { textAlign: "center" }
+- "align right" or "right align" → { textAlign: "right" }
+- IMPORTANT: Always use lowercase: "left", "center", "right" (not "Left" or "Center")
 
 SPACING & DIMENSIONS:
 - "letter spacing 10" or "10px letter spacing" → { letterSpacing: 10 }
@@ -482,15 +502,28 @@ ANIMATION:
 - Color names → translate to hex (red: #FF0000, blue: #0000FF, pink: #FF69B4, purple: #8B5CF6, green: #00FF00, yellow: #FFFF00, orange: #FFA500, white: #FFFFFF, black: #000000)
 
 3D TEXT EFFECTS:
+
+**3D Shadow Effect** (layered shadow for depth):
 - "3D" or "3D effect" or "make it 3D" or "look 3D" or "pop out" → Create depth using layered shadows:
   * shadow: { enabled: true, offsetX: 4, offsetY: 4, blur: 0, color: "#000000" }
   * stroke: { enabled: true, color: "#FFFFFF", width: 2 } (optional, for extra pop)
   * IMPORTANT: For 3D, blur should be 0 and offsetX/offsetY should be 4-8px for depth
   * The shadow color should contrast with text color (dark text = light shadow, light text = dark shadow)
 - "3D with color" → Same as above but use a colored shadow instead of black/white
-  * Example: "blue 3D text" → text color blue, shadow color darker blue or black
 - "subtle 3D" → offsetX: 2, offsetY: 2, blur: 0
 - "extreme 3D" or "deep 3D" → offsetX: 8, offsetY: 8, blur: 0
+
+**3D Extrusion Effect** (stacked layers for thick 3D):
+- "3D extrusion" or "extruded text" or "thick 3D" or "layered 3D" → Create thick 3D depth:
+  * extrusion: { enabled: true, depth: 10, color: "#000000", angle: 135 }
+  * depth: number of layers (1-50, typically 5-15)
+  * angle: direction of extrusion in degrees (0-360, where 0=right, 90=down, 180=left, 270=up)
+  * color: color of the extruded layers (usually darker shade of main color or black)
+  * Examples:
+    - "extrude to the bottom right" → { extrusion: { enabled: true, depth: 10, color: "#000000", angle: 135 } }
+    - "extrude down" → { extrusion: { enabled: true, depth: 10, color: "#000000", angle: 90 } }
+    - "blue text with red extrusion" → { color: "#0000FF", extrusion: { enabled: true, depth: 12, color: "#FF0000", angle: 135 } }
+- "remove extrusion" or "no extrusion" → { extrusion: { enabled: false } }
 
 IMPORTANT: Effects MUST have "enabled: true" to appear! This applies when ADDING or CHANGING effects:
 - "add blue background" → { background: { enabled: true, color: "#0000FF", opacity: 0.8, padding: 12, borderRadius: 8 } }
@@ -514,7 +547,9 @@ IMPORTANT: Effects MUST have "enabled: true" to appear! This applies when ADDING
 - "remove shadow" → { shadow: { enabled: false } }
 - "remove outline" → { stroke: { enabled: false } }
 - "no animation" → { animation: "none" }
-- "align center" → { textAlign: "center" }
+- "center align the text" → { textAlign: "center" }
+- "left align" → { textAlign: "left" }
+- "right align" → { textAlign: "right" }
 - "50% opacity" → { opacity: 0.5 }
 - "width 500" → { width: 500 }
 - "hide this" → { visible: false }
@@ -543,13 +578,18 @@ TEXT FORMATTING:
 EFFECTS:
 - Glow effect: shadow { enabled: true, color: matching, blur: 15-30, offsetX: 0, offsetY: 0 }
 - Drop shadow: shadow { enabled: true, color: '#000000', blur: 10-20, offsetX: 3-5, offsetY: 3-5 }
-- **3D effect**: shadow { enabled: true, color: contrasting, blur: 0, offsetX: 4-6, offsetY: 4-6 }, stroke { enabled: true, color: '#FFFFFF', width: 2 }
+- **3D shadow effect**: shadow { enabled: true, color: contrasting, blur: 0, offsetX: 4-6, offsetY: 4-6 }, stroke { enabled: true, color: '#FFFFFF', width: 2 }
   * KEY: blur must be 0 for 3D! offsetX/offsetY create the depth layers
   * Light text → dark shadow (#000000), dark text → light shadow (or matching dark color)
   * Example: { shadow: { enabled: true, offsetX: 5, offsetY: 5, blur: 0, color: "#000000" }, stroke: { enabled: true, color: "#FFFFFF", width: 2 } }
+- **3D extrusion effect**: extrusion { enabled: true, depth: 10, color: '#000000', angle: 135 }
+  * Creates thick layered 3D depth by stacking copies of the text
+  * Example: { extrusion: { enabled: true, depth: 12, color: "#000000", angle: 135 } }
+  * Remove: { extrusion: { enabled: false } }
 - Outline/stroke: stroke { enabled: true, color: contrasting, width: 2-4 }
 - Change stroke color: stroke { enabled: true, color: newColor } (enabled MUST be true!)
 - Change shadow color: shadow { enabled: true, color: newColor } (enabled MUST be true!)
+- Change extrusion: extrusion { enabled: true, color: newColor, depth: number, angle: degrees } (enabled MUST be true!)
 - Text gradient: gradient { enabled: true, colors: [color1, color2], angle: 90 }
 - Neon text: gradient { enabled: true, colors: ['#FF10F0', '#39FF14'], angle: 45 }, stroke { enabled: true }, shadow { enabled: true }
 - Solid background: background { enabled: true, color: color, opacity: 0.8, padding: 12, borderRadius: 8 }
@@ -622,11 +662,17 @@ Respond with ONLY valid JSON in this exact format:
 {
   "updates": {
     // Only include properties that should change (can include "text": "new content")
+    // For duplicate actions, leave this empty or omit it
   },
   "explanation": "Brief explanation of what you changed and why",
   "confidence": 85,
-  "action": "duplicate" // OPTIONAL: Only include if user requested duplicate/copy action
+  "action": "duplicate" // REQUIRED for duplicate/copy requests! Set to "duplicate" when user wants to copy the element
 }
+
+IMPORTANT FOR DUPLICATE REQUESTS:
+- If user says "duplicate", "dupe", "copy", "clone", etc., you MUST include "action": "duplicate"
+- For duplicate, the "updates" field should be empty {}
+- Example: { "action": "duplicate", "explanation": "Duplicating the text element", "confidence": 100 }
 
 IMPORTANT: Ensure all JSON is valid. Numbers should be numbers, not strings. Colors must have # prefix.`;
 
@@ -645,17 +691,43 @@ IMPORTANT: Ensure all JSON is valid. Numbers should be numbers, not strings. Col
     const parsed = JSON.parse(jsonMatch[1]);
     
     // Log what the AI returned for debugging
+    console.log('🤖 AI Response:', {
+      action: parsed.action,
+      hasUpdates: !!parsed.updates,
+      updateKeys: Object.keys(parsed.updates || {}),
+      confidence: parsed.confidence,
+      updates: parsed.updates
+    });
+    
     if (parsed.updates?.fontFamily) {
       console.log('AI suggested font:', parsed.updates.fontFamily);
+    }
+    
+    if (parsed.updates?.textAlign) {
+      console.log('📐 AI suggested textAlign:', parsed.updates.textAlign);
+    }
+    
+    if (parsed.action) {
+      console.log('🎬 Action detected in parsed response:', parsed.action);
     }
     
     // Validate the response
     const validated = validateStyleInterpretation(parsed, currentElement);
     
     // Log what was validated
-    if (validated.updates.fontFamily) {
-      console.log('Validated font:', validated.updates.fontFamily);
+    if (validated.action) {
+      console.log('✅ Action validated:', validated.action);
     }
+    
+    if (validated.updates.fontFamily) {
+      console.log('✅ Validated font:', validated.updates.fontFamily);
+    }
+    
+    if (validated.updates.textAlign) {
+      console.log('✅ Validated textAlign:', validated.updates.textAlign);
+    }
+    
+    console.log('✅ Final validated updates:', validated.updates);
     
     return validated;
   } catch (error) {

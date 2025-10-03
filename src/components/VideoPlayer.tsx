@@ -648,14 +648,49 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                         dangerouslySetInnerHTML={{ __html: textToHtml(text.text) }}
                       />
                     ) : (
-                      <div
-                        style={{
-                          ...getTextContentStyles(text),
-                          position: 'relative',
-                          zIndex: 1,
-                        }}
-                      >
-                        {text.text}
+                      <div style={{ width: '100%', textAlign: text.textAlign }}>
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                          {/* 3D Extrusion for marquee */}
+                          {text.extrusion?.enabled && Array.from({ length: text.extrusion.depth }, (_, i) => {
+                          const layer = text.extrusion.depth - i;
+                          const angleRad = (text.extrusion.angle * Math.PI) / 180;
+                          const offsetX = Math.cos(angleRad) * layer;
+                          const offsetY = Math.sin(angleRad) * layer;
+                          
+                          const extrusionStyles = {
+                            ...getTextContentStyles(text),
+                            position: 'absolute' as const,
+                            top: 0,
+                            left: 0,
+                            color: text.extrusion.color,
+                            transform: `translate(${offsetX}px, ${offsetY}px)`,
+                            textShadow: 'none',
+                            WebkitTextStroke: 'none',
+                            pointerEvents: 'none' as const,
+                            backgroundImage: 'none',
+                            WebkitBackgroundClip: 'initial',
+                            backgroundClip: 'initial',
+                            WebkitTextFillColor: text.extrusion.color,
+                            filter: 'none',
+                          };
+                          
+                          return (
+                            <div key={`extrusion-marquee-${i}`} style={extrusionStyles} aria-hidden="true">
+                              {text.text}
+                            </div>
+                          );
+                        })}
+                        
+                        <div
+                          style={{
+                            ...getTextContentStyles(text),
+                            position: 'relative',
+                            zIndex: 1,
+                          }}
+                        >
+                          {text.text}
+                        </div>
+                        </div>
                       </div>
                     )}
                     </div>
@@ -685,12 +720,56 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     dangerouslySetInnerHTML={{ __html: textToHtml(text.text) }}
                   />
                 ) : (
-                  <div
-                    style={{
-                      ...getTextContentStyles(text),
-                    }}
-                  >
-                    {text.text}
+                  <div style={{ width: '100%', textAlign: text.textAlign }}>
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      {/* 3D Extrusion Layers - render from back to front */}
+                      {text.extrusion?.enabled && Array.from({ length: text.extrusion.depth }, (_, i) => {
+                      const layer = text.extrusion.depth - i; // Reverse order: furthest layer first
+                      const angleRad = (text.extrusion.angle * Math.PI) / 180;
+                      const offsetX = Math.cos(angleRad) * layer;
+                      const offsetY = Math.sin(angleRad) * layer;
+                      
+                      // Get base text styles but override effects
+                      const extrusionStyles = {
+                        ...getTextContentStyles(text),
+                        position: 'absolute' as const,
+                        top: 0,
+                        left: 0,
+                        color: text.extrusion.color,
+                        transform: `translate(${offsetX}px, ${offsetY}px)`,
+                        textShadow: 'none', // No shadows on extrusion
+                        WebkitTextStroke: 'none', // No stroke on extrusion
+                        pointerEvents: 'none' as const,
+                        // Remove gradient effects
+                        backgroundImage: 'none',
+                        WebkitBackgroundClip: 'initial',
+                        backgroundClip: 'initial',
+                        WebkitTextFillColor: text.extrusion.color,
+                        filter: 'none',
+                      };
+                      
+                      return (
+                        <div
+                          key={`extrusion-${i}`}
+                          style={extrusionStyles}
+                          aria-hidden="true"
+                        >
+                          {text.text}
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Main Text - always on top */}
+                    <div
+                      style={{
+                        ...getTextContentStyles(text),
+                        position: 'relative',
+                        zIndex: 1,
+                      }}
+                    >
+                      {text.text}
+                    </div>
+                    </div>
                   </div>
                 )
               )}
