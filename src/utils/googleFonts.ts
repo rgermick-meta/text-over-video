@@ -1,14 +1,12 @@
-// Curated Google Fonts organized by style for expressive design
-export const FONT_CATEGORIES = {
-  display: ['Bebas Neue', 'Anton', 'Righteous', 'Bungee', 'Alfa Slab One', 'Archivo Black'],
-  modern: ['Poppins', 'Montserrat', 'Inter', 'Raleway', 'Work Sans', 'DM Sans'],
-  classic: ['Playfair Display', 'Merriweather', 'Lora', 'Crimson Text', 'Cormorant'],
-  fun: ['Fredoka One', 'Pacifico', 'Lobster', 'Permanent Marker', 'Bangers', 'Concert One'],
-  elegant: ['Cinzel', 'Great Vibes', 'Dancing Script', 'Allura', 'Tangerine'],
-  tech: ['Roboto Mono', 'Space Mono', 'Fira Code', 'Courier Prime', 'JetBrains Mono'],
-};
+// Import comprehensive font metadata with rich descriptions
+import { FONT_CATEGORIES as FONT_CATS, ALL_FONT_NAMES } from './fontMetadata';
 
-export const ALL_FONTS = Object.values(FONT_CATEGORIES).flat();
+// Re-export for backwards compatibility
+export const FONT_CATEGORIES = FONT_CATS;
+export const ALL_FONTS = ALL_FONT_NAMES;
+
+// Export metadata for AI font selection
+export { FONT_METADATA, findFontsByStyle } from './fontMetadata';
 
 // Curated color palettes for tasteful designs
 export const COLOR_PALETTES = {
@@ -34,7 +32,16 @@ export interface TextStylePreset {
     letterSpacing: number;
     shadow?: { enabled: boolean; color: string; blur: number; offsetX: number; offsetY: number };
     stroke?: { enabled: boolean; color: string; width: number };
-    background?: { enabled: boolean; color: string; padding: number; borderRadius: number };
+    background?: {
+      enabled: boolean;
+      color: string;
+      padding: number;
+      borderRadius: number;
+      opacity?: number;
+      gradient?: { enabled: boolean; colors: [string, string]; angle: number };
+      stroke?: { enabled: boolean; color: string; width: number };
+      shadow?: { enabled: boolean; color: string; blur: number; offsetX: number; offsetY: number };
+    };
     gradient?: { enabled: boolean; colors: [string, string]; angle: number };
     animation?: string;
     animationDuration?: number;
@@ -191,24 +198,55 @@ export const TEXT_STYLE_PRESETS: TextStylePreset[] = [
   },
 ];
 
-// Load Google Fonts dynamically
+// Track which fonts have been loaded
+const loadedFonts = new Set<string>();
+
+// Load Google Fonts dynamically (individual or small batches)
 export const loadGoogleFont = (fontFamily: string) => {
   // Check if already loaded
+  if (loadedFonts.has(fontFamily)) {
+    console.log(`Font "${fontFamily}" already loaded`);
+    return;
+  }
+  
   const existingLink = document.querySelector(`link[href*="${fontFamily.replace(/ /g, '+')}"]`);
-  if (existingLink) return;
+  if (existingLink) {
+    console.log(`Font "${fontFamily}" link already exists`);
+    loadedFonts.add(fontFamily);
+    return;
+  }
 
+  console.log(`Loading font "${fontFamily}" from Google Fonts`);
   const link = document.createElement('link');
   link.href = `https://fonts.googleapis.com/css2?family=${fontFamily.replace(/ /g, '+')}:wght@400;700&display=swap`;
   link.rel = 'stylesheet';
   document.head.appendChild(link);
+  loadedFonts.add(fontFamily);
 };
 
-// Load all fonts at once
+// Load fonts in batches to avoid URL length limits
+// Google Fonts recommends max 10-15 fonts per request
 export const loadAllGoogleFonts = () => {
-  const fontsQuery = ALL_FONTS.map(font => `family=${font.replace(/ /g, '+')}`).join('&');
-  const link = document.createElement('link');
-  link.href = `https://fonts.googleapis.com/css2?${fontsQuery}&display=swap`;
-  link.rel = 'stylesheet';
-  document.head.appendChild(link);
+  const BATCH_SIZE = 10;
+  const batches: string[][] = [];
+  
+  // Split fonts into batches
+  for (let i = 0; i < ALL_FONTS.length; i += BATCH_SIZE) {
+    batches.push(ALL_FONTS.slice(i, i + BATCH_SIZE));
+  }
+  
+  // Load each batch with a slight delay to prevent overwhelming the browser
+  batches.forEach((batch, index) => {
+    setTimeout(() => {
+      const fontsQuery = batch.map(font => `family=${font.replace(/ /g, '+')}`).join('&');
+      const link = document.createElement('link');
+      link.href = `https://fonts.googleapis.com/css2?${fontsQuery}&display=swap`;
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+      
+      // Mark these fonts as loaded
+      batch.forEach(font => loadedFonts.add(font));
+    }, index * 100); // Stagger by 100ms
+  });
 };
 

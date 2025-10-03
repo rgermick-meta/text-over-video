@@ -55,6 +55,38 @@ export const PRESET_SCHEMA = {
             color: { type: 'string' },
             padding: { type: 'number' },
             borderRadius: { type: 'number' },
+            opacity: { type: 'number' },
+            gradient: {
+              type: 'object',
+              properties: {
+                enabled: { type: 'boolean' },
+                colors: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  minItems: 2,
+                  maxItems: 2,
+                },
+                angle: { type: 'number' },
+              },
+            },
+            stroke: {
+              type: 'object',
+              properties: {
+                enabled: { type: 'boolean' },
+                color: { type: 'string' },
+                width: { type: 'number' },
+              },
+            },
+            shadow: {
+              type: 'object',
+              properties: {
+                enabled: { type: 'boolean' },
+                color: { type: 'string' },
+                blur: { type: 'number' },
+                offsetX: { type: 'number' },
+                offsetY: { type: 'number' },
+              },
+            },
           },
         },
         gradient: {

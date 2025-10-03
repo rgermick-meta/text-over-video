@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { VideoPlayer } from './components/VideoPlayer';
 import { TextEditor } from './components/TextEditor';
 import { VideoPicker } from './components/VideoPicker';
+import { AIStyleChat } from './components/AIStyleChat';
 import { SAMPLE_VIDEOS } from './data/animations';
 import { TextElement, VideoClip } from './types';
 import { loadAllGoogleFonts, TEXT_STYLE_PRESETS } from './utils/googleFonts';
 import { loadCustomPresets } from './utils/presetManager';
+import html2canvas from 'html2canvas';
 
 function App() {
   const [selectedVideo, setSelectedVideo] = useState<VideoClip>(
@@ -519,35 +521,69 @@ function App() {
     
     if (!preset) return;
 
+    // Reset all style properties to defaults, then apply preset
     const updates: Partial<TextElement> = {
+      // Core text properties from preset
       fontFamily: preset.settings.fontFamily,
       fontSize: preset.settings.fontSize,
       bold: preset.settings.bold,
       color: preset.settings.color,
       letterSpacing: preset.settings.letterSpacing,
+      
+      // Reset shadow to default (or apply preset value)
+      shadow: preset.settings.shadow || {
+        enabled: false,
+        color: '#000000',
+        blur: 10,
+        offsetX: 2,
+        offsetY: 2,
+      },
+      
+      // Reset stroke to default (or apply preset value)
+      stroke: preset.settings.stroke || {
+        enabled: false,
+        color: '#000000',
+        width: 2,
+      },
+      
+      // Reset background to default (or apply preset value)
+      background: preset.settings.background || {
+        enabled: false,
+        color: '#000000',
+        padding: 16,
+        borderRadius: 8,
+        opacity: 0.5,
+        gradient: {
+          enabled: false,
+          colors: ['#000000', '#333333'],
+          angle: 90,
+        },
+        stroke: {
+          enabled: false,
+          color: '#ffffff',
+          width: 2,
+        },
+        shadow: {
+          enabled: false,
+          color: '#000000',
+          blur: 5,
+          offsetX: 2,
+          offsetY: 2,
+        },
+      },
+      
+      // Reset gradient to default (or apply preset value)
+      gradient: preset.settings.gradient || {
+        enabled: false,
+        colors: ['#FF006E', '#FFBE0B'],
+        angle: 45,
+      },
+      
+      // Reset animation to default (or apply preset value)
+      animation: (preset.settings.animation as TextElement['animation']) || 'none',
+      animationDuration: preset.settings.animationDuration ?? 1.0,
+      animationDistance: preset.settings.animationDistance ?? 100,
     };
-
-    if (preset.settings.shadow) {
-      updates.shadow = preset.settings.shadow;
-    }
-    if (preset.settings.stroke) {
-      updates.stroke = preset.settings.stroke;
-    }
-    if (preset.settings.background) {
-      updates.background = preset.settings.background;
-    }
-    if (preset.settings.gradient) {
-      updates.gradient = preset.settings.gradient;
-    }
-    if (preset.settings.animation) {
-      updates.animation = preset.settings.animation as TextElement['animation'];
-    }
-    if (preset.settings.animationDuration !== undefined) {
-      updates.animationDuration = preset.settings.animationDuration;
-    }
-    if (preset.settings.animationDistance !== undefined) {
-      updates.animationDistance = preset.settings.animationDistance;
-    }
 
     // Apply preset to all selected elements
     selectedTextIds.forEach(id => {
@@ -634,162 +670,21 @@ function App() {
   };
 
   const handleDownloadScreenshot = async () => {
-    if (!videoRef || !videoContainerRef.current) return;
+    if (!videoContainerRef.current) return;
 
     try {
-      // Create canvas matching video dimensions
-      const canvas = document.createElement('canvas');
-      const containerRect = videoContainerRef.current.getBoundingClientRect();
-      
-      // Use actual video dimensions for higher quality
-      canvas.width = videoRef.videoWidth || 1080;
-      canvas.height = videoRef.videoHeight || 1920;
-      
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      // Find the video canvas element (the inner div with video and text overlays)
+      const videoCanvas = videoContainerRef.current.querySelector('[data-video-canvas="true"]') as HTMLElement;
+      if (!videoCanvas) return;
 
-      // Draw video frame
-      ctx.drawImage(videoRef, 0, 0, canvas.width, canvas.height);
-
-      // Calculate scale factors between container and canvas
-      const scaleX = canvas.width / containerRect.width;
-      const scaleY = canvas.height / containerRect.height;
-
-      // Draw each visible text element
-      for (const text of textElements.filter(t => t.visible)) {
-        ctx.save();
-
-        // Calculate position in canvas pixels
-        const x = (text.position.x / 100) * canvas.width;
-        const y = (text.position.y / 100) * canvas.height;
-
-        // Apply transformations
-        ctx.translate(x, y);
-        ctx.rotate((text.rotation * Math.PI) / 180);
-        ctx.globalAlpha = text.opacity;
-
-        // Set font properties
-        const scaledFontSize = text.fontSize * scaleY;
-        ctx.font = `${text.italic ? 'italic ' : ''}${text.bold ? 'bold ' : ''}${scaledFontSize}px "${text.fontFamily}"`;
-        ctx.textAlign = text.textAlign;
-        ctx.letterSpacing = `${text.letterSpacing * scaleX}px`;
-
-        // Split into lines and calculate metrics
-        const lines = text.text.split('\n');
-        const lineHeight = scaledFontSize * text.lineHeight;
-
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          const lineY = i * lineHeight;
-
-          // Draw background if enabled
-          if (text.background.enabled) {
-            const metrics = ctx.measureText(line);
-            const padding = text.background.padding * scaleX;
-            const bgWidth = metrics.width + padding * 2;
-            const bgHeight = scaledFontSize + padding * 2;
-            
-            let bgX = -padding;
-            if (text.textAlign === 'center') bgX = -bgWidth / 2;
-            if (text.textAlign === 'right') bgX = -bgWidth;
-            
-            const bgY = lineY - scaledFontSize - padding / 2;
-
-            ctx.save();
-            ctx.globalAlpha = text.background.opacity || 0.5;
-
-            // Background gradient or solid
-            if (text.background.gradient?.enabled) {
-              const grad = ctx.createLinearGradient(
-                bgX, bgY,
-                bgX + bgWidth, bgY + bgHeight
-              );
-              grad.addColorStop(0, text.background.gradient.colors[0]);
-              grad.addColorStop(1, text.background.gradient.colors[1]);
-              ctx.fillStyle = grad;
-            } else {
-              ctx.fillStyle = text.background.color;
-            }
-
-            // Draw background with border radius
-            if (text.background.borderRadius > 0) {
-              const radius = text.background.borderRadius * scaleX;
-              ctx.beginPath();
-              ctx.roundRect(bgX, bgY, bgWidth, bgHeight, radius);
-              ctx.fill();
-            } else {
-              ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-            }
-
-            // Background stroke
-            if (text.background.stroke?.enabled) {
-              ctx.strokeStyle = text.background.stroke.color;
-              ctx.lineWidth = text.background.stroke.width * scaleX;
-              if (text.background.borderRadius > 0) {
-                ctx.beginPath();
-                ctx.roundRect(bgX, bgY, bgWidth, bgHeight, text.background.borderRadius * scaleX);
-                ctx.stroke();
-              } else {
-                ctx.strokeRect(bgX, bgY, bgWidth, bgHeight);
-              }
-            }
-
-            ctx.restore();
-          }
-
-          // Set shadow BEFORE drawing text (for gradients, we'll apply it to each layer)
-          if (text.shadow.enabled) {
-            ctx.shadowColor = text.shadow.color;
-            ctx.shadowBlur = text.shadow.blur * scaleX;
-            ctx.shadowOffsetX = text.shadow.offsetX * scaleX;
-            ctx.shadowOffsetY = text.shadow.offsetY * scaleY;
-          }
-
-          // Draw text stroke if enabled (drawn first, before fill)
-          if (text.stroke.enabled) {
-            ctx.strokeStyle = text.stroke.color;
-            ctx.lineWidth = text.stroke.width * scaleX;
-            ctx.lineJoin = 'round';
-            ctx.miterLimit = 2;
-            ctx.strokeText(line, 0, lineY);
-          }
-
-          // Draw text fill
-          if (text.gradient.enabled) {
-            // Create gradient for text
-            const metrics = ctx.measureText(line);
-            let gradX = 0;
-            if (text.textAlign === 'center') gradX = -metrics.width / 2;
-            if (text.textAlign === 'right') gradX = -metrics.width;
-
-            const angleRad = (text.gradient.angle * Math.PI) / 180;
-            const gradientLength = Math.abs(metrics.width * Math.cos(angleRad)) + 
-                                   Math.abs(scaledFontSize * Math.sin(angleRad));
-            
-            const x0 = gradX;
-            const y0 = lineY - scaledFontSize;
-            const x1 = gradX + gradientLength * Math.cos(angleRad);
-            const y1 = lineY - scaledFontSize + gradientLength * Math.sin(angleRad);
-
-            const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
-            gradient.addColorStop(0, text.gradient.colors[0]);
-            gradient.addColorStop(1, text.gradient.colors[1]);
-            ctx.fillStyle = gradient;
-          } else {
-            ctx.fillStyle = text.color;
-          }
-
-          ctx.fillText(line, 0, lineY);
-
-          // Reset shadow for next line
-          ctx.shadowColor = 'transparent';
-          ctx.shadowBlur = 0;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
-        }
-
-        ctx.restore();
-      }
+      // Capture the actual rendered pixels using html2canvas
+      const canvas = await html2canvas(videoCanvas, {
+        backgroundColor: null,
+        scale: 2, // Higher quality screenshot
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      });
 
       // Convert to blob and download
       canvas.toBlob((blob) => {
@@ -813,8 +708,8 @@ function App() {
 
   return (
     <div className="h-screen bg-black flex flex-col lg:flex-row gap-6 p-6 overflow-hidden">
-      {/* Control Panel */}
-      <div className="lg:w-[450px] flex-shrink-0 flex flex-col gap-4">
+      {/* Left Panel - Text/Video Editor */}
+      <div className="lg:w-[400px] flex-shrink-0 flex flex-col gap-4">
         {/* Tab Switcher */}
         <div className="bg-gray-800 rounded-xl p-2 grid grid-cols-2 gap-2">
           <button
@@ -971,6 +866,18 @@ function App() {
             refreshTrigger={refreshKey}
           />
         </div>
+      </div>
+
+      {/* Right Panel - AI Style Assistant */}
+      <div className="lg:w-[380px] flex-shrink-0 h-full">
+        <AIStyleChat
+          selectedTextIds={selectedTextIds}
+          textElements={textElements}
+          onUpdateText={handleUpdateText}
+          onDuplicateText={handleDuplicateText}
+          videoTitle={selectedVideo.name}
+          videoElement={videoRef}
+        />
       </div>
     </div>
   );

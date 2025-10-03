@@ -448,7 +448,27 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       
       // Text shadow (only works without gradient)
       if (text.shadow.enabled) {
-        styles.textShadow = `${text.shadow.offsetX}px ${text.shadow.offsetY}px ${text.shadow.blur}px ${text.shadow.color}`;
+        // Check if this is a 3D effect (no blur, with offset)
+        const is3DEffect = text.shadow.blur === 0 && (Math.abs(text.shadow.offsetX) > 0 || Math.abs(text.shadow.offsetY) > 0);
+        
+        if (is3DEffect) {
+          // Create layered shadows for 3D effect
+          const layers: string[] = [];
+          const stepX = text.shadow.offsetX > 0 ? 1 : -1;
+          const stepY = text.shadow.offsetY > 0 ? 1 : -1;
+          const maxLayers = Math.max(Math.abs(text.shadow.offsetX), Math.abs(text.shadow.offsetY));
+          
+          for (let i = 1; i <= maxLayers; i++) {
+            const x = stepX * i;
+            const y = stepY * i;
+            layers.push(`${x}px ${y}px 0 ${text.shadow.color}`);
+          }
+          
+          styles.textShadow = layers.join(', ');
+        } else {
+          // Regular shadow
+          styles.textShadow = `${text.shadow.offsetX}px ${text.shadow.offsetY}px ${text.shadow.blur}px ${text.shadow.color}`;
+        }
       }
     }
 
@@ -489,7 +509,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onMouseLeave={handleMouseUp}
       onClick={() => onSelectText(null)}
     >
-      <div className="relative w-full max-w-full max-h-full rounded-[20px] overflow-hidden" style={{ aspectRatio: '9/16' }}>
+      <div className="relative w-full max-w-full max-h-full rounded-[20px] overflow-hidden" style={{ aspectRatio: '9/16' }} data-video-canvas="true">
         {/* Base Video Layer */}
         <video
           ref={videoRef}

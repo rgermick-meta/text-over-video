@@ -33,7 +33,25 @@ Presets are stored as an array of preset objects. Each preset object follows thi
         "enabled": false,
         "color": "#000000",
         "padding": 12,
-        "borderRadius": 8
+        "borderRadius": 8,
+        "opacity": 0.8,
+        "gradient": {
+          "enabled": false,
+          "colors": ["#000000", "#333333"],
+          "angle": 90
+        },
+        "stroke": {
+          "enabled": false,
+          "color": "#ffffff",
+          "width": 2
+        },
+        "shadow": {
+          "enabled": false,
+          "color": "#000000",
+          "blur": 5,
+          "offsetX": 2,
+          "offsetY": 2
+        }
       },
       "gradient": {
         "enabled": false,
@@ -104,6 +122,21 @@ Presets are stored as an array of preset objects. Each preset object follows thi
 | `background.color` | string | ✅ | Background color in hex format |
 | `background.padding` | number | ✅ | Background padding in pixels |
 | `background.borderRadius` | number | ✅ | Background border radius in pixels |
+| `background.opacity` | number | ❌ | Background opacity (0-1) |
+| `background.gradient` | object | ❌ | Gradient settings for the background |
+| `background.gradient.enabled` | boolean | ✅ | Whether gradient is enabled on background |
+| `background.gradient.colors` | array[string, string] | ✅ | Two colors for gradient in hex format |
+| `background.gradient.angle` | number | ✅ | Gradient angle in degrees (0-360) |
+| `background.stroke` | object | ❌ | Stroke/border settings for the background |
+| `background.stroke.enabled` | boolean | ✅ | Whether stroke is enabled on background |
+| `background.stroke.color` | string | ✅ | Stroke color in hex format |
+| `background.stroke.width` | number | ✅ | Stroke width in pixels |
+| `background.shadow` | object | ❌ | Shadow settings for the background |
+| `background.shadow.enabled` | boolean | ✅ | Whether shadow is enabled on background |
+| `background.shadow.color` | string | ✅ | Shadow color in hex format or rgba |
+| `background.shadow.blur` | number | ✅ | Shadow blur radius in pixels |
+| `background.shadow.offsetX` | number | ✅ | Shadow horizontal offset in pixels |
+| `background.shadow.offsetY` | number | ✅ | Shadow vertical offset in pixels |
 
 #### Gradient
 
