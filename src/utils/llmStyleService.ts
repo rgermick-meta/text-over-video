@@ -126,10 +126,14 @@ function validateStyleInterpretation(
     }
 
     // Position (percentage-based, 0-100)
+    // Keep more conservative bounds to prevent text from going off-screen
+    // Since text boxes have width, we need to leave room on the right/bottom edges
     if (updates.position && typeof updates.position === 'object') {
       validated.updates.position = {
-        x: typeof updates.position.x === 'number' ? Math.min(100, Math.max(0, updates.position.x)) : currentElement.position.x,
-        y: typeof updates.position.y === 'number' ? Math.min(100, Math.max(0, updates.position.y)) : currentElement.position.y
+        // Max 90% to leave room for text box width (prevents off-screen right edge)
+        x: typeof updates.position.x === 'number' ? Math.min(90, Math.max(5, updates.position.x)) : currentElement.position.x,
+        // Max 90% to leave room for text box height (prevents off-screen bottom edge)
+        y: typeof updates.position.y === 'number' ? Math.min(90, Math.max(5, updates.position.y)) : currentElement.position.y
       };
     }
 
@@ -406,14 +410,16 @@ SPECIAL ACTIONS:
 USING VIDEO CONTENT ANALYSIS:
 - Use the VIDEO CONTENT ANALYSIS to extract colors, understand subjects, and position text
 - "make it the same color as [object]" → Extract color from video analysis
-- "position it near [subject]" → Use subject position to set position.x and position.y
+- "position it near [subject]" → Use subject position to set position.x and position.y (keep within 5-90% range)
 - "match the mood" → Use aesthetic description to inform styling
 - "use colors from the video" → Extract hex codes from the analysis
 - Examples:
   * "make it the color of the alien" → Extract green color from analysis → { color: "#ABC123" }
   * "position above the astronaut" → If astronaut is at middle-center → { position: { x: 50, y: 30 } }
+  * "position at bottom" → Use safe bottom position → { position: { x: 50, y: 85 } }
   * "match the space aesthetic" → Use dark colors, modern fonts
   * "use the dominant color" → Extract first dominant color → { color: "#..." }
+- IMPORTANT: Always keep position.x and position.y within 5-90% range to prevent off-screen text
 
 IMPORTANT - FONT CHANGES:
 - ONLY change fontFamily if the user EXPLICITLY requests a font change or style change
@@ -487,12 +493,13 @@ EFFECTS (ADD & REMOVE):
 ANIMATION:
 - "animation" → animation: "fadeIn" or "slideUp" etc., animationDuration: 1-2
 - "marquee/scroll/scrolling" → animation: "marqueeLeft" or "marqueeRight", animationDuration: 2-5 (longer for scrolling effect)
-- "move/position" → position: { x: percentage (0-100), y: percentage (0-100) }
-  * "move down" → increase y by 5-10%
-  * "move up" → decrease y by 5-10%
-  * "move left" → decrease x by 5-10%
-  * "move right" → increase x by 5-10%
+- "move/position" → position: { x: percentage (5-90), y: percentage (5-90) }
+  * "move down" → increase y by 5-10% (keep within 5-90% range)
+  * "move up" → decrease y by 5-10% (keep within 5-90% range)
+  * "move left" → decrease x by 5-10% (keep within 5-90% range)
+  * "move right" → increase x by 5-10% (keep within 5-90% range)
   * "center" → x: 50, y: 50
+  * CRITICAL: All positions must stay within 5-90% to prevent off-screen text
   * Position is percentage-based where 0,0 is top-left and 100,100 is bottom-right
 - "professional/business/corporate" → clean fonts (Poppins, Inter), neutral colors, minimal effects
 - "fun/playful/quirky" → fun fonts (Fredoka One, Pacifico), bright colors
@@ -602,14 +609,16 @@ ANIMATIONS:
 - Fade in: animation: 'fadeIn', animationDuration: 1.5
 - Slide up: animation: 'slideUp', animationDuration: 1, animationDistance: 100
 - Marquee/scrolling: animation: 'marqueeLeft' or 'marqueeRight', animationDuration: 2-5 (longer duration = slower scroll)
-- Position moves: position: { x: percentage, y: percentage } where 0-100 represents screen position
+- Position moves: position: { x: percentage, y: percentage } where 5-90 represents safe screen position
   * Move down: { position: { x: current_x, y: current_y + 10 } }
   * Move up: { position: { x: current_x, y: current_y - 10 } }
   * Move left: { position: { x: current_x - 10, y: current_y } }
   * Move right: { position: { x: current_x + 10, y: current_y } }
   * Center: { position: { x: 50, y: 50 } }
   * Top-left: { position: { x: 10, y: 10 } }
-  * Bottom-right: { position: { x: 90, y: 90 } }
+  * Top-center: { position: { x: 50, y: 15 } }
+  * Bottom-center: { position: { x: 50, y: 85 } }
+  * IMPORTANT: Keep within 5-90% range to prevent text going off-screen
 
 CRITICAL RULES:
 1. Effects need enabled: true in their objects - THIS IS MANDATORY FOR VISIBILITY!
@@ -620,10 +629,13 @@ CRITICAL RULES:
 3. Text gradients: set gradient.enabled to true (this is SEPARATE from background.gradient!)
 4. Rotation: just a number property, NOT an object
 5. Animation: use exact animation names: 'fadeIn', 'slideUp', 'slideDown', 'slideLeft', 'slideRight', 'bounce', 'zoom', 'pulse', 'marqueeLeft', 'marqueeRight'
-6. Position: use percentage values (0-100) for x and y. Current position is shown above. For relative moves, add/subtract from current position.
+6. Position: use percentage values (5-90) for x and y to keep text on-screen. Current position is shown above. For relative moves, add/subtract from current position.
+   - IMPORTANT: Values are clamped to 5-90% to prevent text from going off-screen edges
    - Small move = ±5%
    - Medium move = ±10-15%
    - Large move = ±20-30%
+   - Center position = x: 50, y: 50
+   - Avoid positioning near edges (below 5% or above 90%)
 7. Numeric properties (letterSpacing, lineHeight, width, opacity, rotation, fontSize) are direct number values:
    - "10px letter spacing" → { letterSpacing: 10 } NOT { letterSpacing: { value: 10 } }
    - "line height 1.5" → { lineHeight: 1.5 } NOT { lineHeight: { value: 1.5 } }
